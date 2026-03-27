@@ -9,13 +9,15 @@ use derive_more::{Display, From};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "unstable_session_config_options")]
-use crate::SessionConfigOption;
-use crate::{
-    ContentBlock, ExtNotification, ExtRequest, ExtResponse, IntoOption, Meta, Plan, SessionId,
-    SessionModeId, ToolCall, ToolCallUpdate,
+#[cfg(feature = "unstable_elicitation")]
+use crate::elicitation::{
+    ElicitationCapabilities, ElicitationCompleteNotification, ElicitationRequest,
+    ElicitationResponse,
 };
-#[cfg(feature = "unstable_session_info_update")]
+use crate::{
+    ContentBlock, ExtNotification, ExtRequest, ExtResponse, IntoOption, Meta, Plan,
+    SessionConfigOption, SessionId, SessionModeId, ToolCall, ToolCallUpdate,
+};
 use crate::{IntoMaybeUndefined, MaybeUndefined};
 
 // Session updates
@@ -94,16 +96,17 @@ pub enum SessionUpdate {
     ///
     /// See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/session-modes)
     CurrentModeUpdate(CurrentModeUpdate),
-    #[cfg(feature = "unstable_session_config_options")]
+    /// Session configuration options have been updated.
+    ConfigOptionUpdate(ConfigOptionUpdate),
+    /// Session metadata has been updated (title, timestamps, custom metadata)
+    SessionInfoUpdate(SessionInfoUpdate),
     /// **UNSTABLE**
     ///
     /// This capability is not part of the spec yet, and may be removed or changed at any point.
     ///
-    /// Session configuration options have been updated.
-    ConfigOptionUpdate(ConfigOptionUpdate),
-    #[cfg(feature = "unstable_session_info_update")]
-    /// Session metadata has been updated (title, timestamps, custom metadata)
-    SessionInfoUpdate(SessionInfoUpdate),
+    /// Context window and cost update for the session.
+    #[cfg(feature = "unstable_session_usage")]
+    UsageUpdate(UsageUpdate),
 }
 
 /// The current mode of the session has changed
@@ -145,12 +148,7 @@ impl CurrentModeUpdate {
     }
 }
 
-/// **UNSTABLE**
-///
-/// This capability is not part of the spec yet, and may be removed or changed at any point.
-///
 /// Session configuration options have been updated.
-#[cfg(feature = "unstable_session_config_options")]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
@@ -166,7 +164,6 @@ pub struct ConfigOptionUpdate {
     pub meta: Option<Meta>,
 }
 
-#[cfg(feature = "unstable_session_config_options")]
 impl ConfigOptionUpdate {
     #[must_use]
     pub fn new(config_options: Vec<SessionConfigOption>) -> Self {
@@ -192,7 +189,6 @@ impl ConfigOptionUpdate {
 ///
 /// Agents send this notification to update session information like title or custom metadata.
 /// This allows clients to display dynamic session names and track session state changes.
-#[cfg(feature = "unstable_session_info_update")]
 #[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
@@ -212,7 +208,6 @@ pub struct SessionInfoUpdate {
     pub meta: Option<Meta>,
 }
 
-#[cfg(feature = "unstable_session_info_update")]
 impl SessionInfoUpdate {
     #[must_use]
     pub fn new() -> Self {
@@ -245,6 +240,90 @@ impl SessionInfoUpdate {
     }
 }
 
+/// **UNSTABLE**
+///
+/// This capability is not part of the spec yet, and may be removed or changed at any point.
+///
+/// Context window and cost update for a session.
+#[cfg(feature = "unstable_session_usage")]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct UsageUpdate {
+    /// Tokens currently in context.
+    pub used: u64,
+    /// Total context window size in tokens.
+    pub size: u64,
+    /// Cumulative session cost (optional).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost: Option<Cost>,
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    pub meta: Option<Meta>,
+}
+
+#[cfg(feature = "unstable_session_usage")]
+impl UsageUpdate {
+    #[must_use]
+    pub fn new(used: u64, size: u64) -> Self {
+        Self {
+            used,
+            size,
+            cost: None,
+            meta: None,
+        }
+    }
+
+    /// Cumulative session cost (optional).
+    #[must_use]
+    pub fn cost(mut self, cost: impl IntoOption<Cost>) -> Self {
+        self.cost = cost.into_option();
+        self
+    }
+
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[must_use]
+    pub fn meta(mut self, meta: impl IntoOption<Meta>) -> Self {
+        self.meta = meta.into_option();
+        self
+    }
+}
+
+/// **UNSTABLE**
+///
+/// This capability is not part of the spec yet, and may be removed or changed at any point.
+///
+/// Cost information for a session.
+#[cfg(feature = "unstable_session_usage")]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct Cost {
+    /// Total cumulative cost for session.
+    pub amount: f64,
+    /// ISO 4217 currency code (e.g., "USD", "EUR").
+    pub currency: String,
+}
+
+#[cfg(feature = "unstable_session_usage")]
+impl Cost {
+    #[must_use]
+    pub fn new(amount: f64, currency: impl Into<String>) -> Self {
+        Self {
+            amount,
+            currency: currency.into(),
+        }
+    }
+}
+
 /// A streamed item of content
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -252,6 +331,18 @@ impl SessionInfoUpdate {
 pub struct ContentChunk {
     /// A single item of content
     pub content: ContentBlock,
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// A unique identifier for the message this chunk belongs to.
+    ///
+    /// All chunks belonging to the same message share the same `messageId`.
+    /// A change in `messageId` indicates a new message has started.
+    /// Both clients and agents MUST use UUID format for message IDs.
+    #[cfg(feature = "unstable_message_id")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message_id: Option<String>,
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
     /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
     /// these keys.
@@ -266,8 +357,26 @@ impl ContentChunk {
     pub fn new(content: ContentBlock) -> Self {
         Self {
             content,
+            #[cfg(feature = "unstable_message_id")]
+            message_id: None,
             meta: None,
         }
+    }
+
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// A unique identifier for the message this chunk belongs to.
+    ///
+    /// All chunks belonging to the same message share the same `messageId`.
+    /// A change in `messageId` indicates a new message has started.
+    /// Both clients and agents MUST use UUID format for message IDs.
+    #[cfg(feature = "unstable_message_id")]
+    #[must_use]
+    pub fn message_id(mut self, message_id: impl IntoOption<String>) -> Self {
+        self.message_id = message_id.into_option();
+        self
     }
 
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
@@ -340,6 +449,7 @@ pub struct AvailableCommand {
 }
 
 impl AvailableCommand {
+    #[must_use]
     pub fn new(name: impl Into<String>, description: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -394,6 +504,7 @@ pub struct UnstructuredCommandInput {
 }
 
 impl UnstructuredCommandInput {
+    #[must_use]
     pub fn new(hint: impl Into<String>) -> Self {
         Self {
             hint: hint.into(),
@@ -488,6 +599,7 @@ pub struct PermissionOption {
 }
 
 impl PermissionOption {
+    #[must_use]
     pub fn new(
         option_id: impl Into<PermissionOptionId>,
         name: impl Into<String>,
@@ -521,6 +633,7 @@ impl PermissionOption {
 pub struct PermissionOptionId(pub Arc<str>);
 
 impl PermissionOptionId {
+    #[must_use]
     pub fn new(id: impl Into<Arc<str>>) -> Self {
         Self(id.into())
     }
@@ -664,6 +777,7 @@ pub struct WriteTextFileRequest {
 }
 
 impl WriteTextFileRequest {
+    #[must_use]
     pub fn new(
         session_id: impl Into<SessionId>,
         path: impl Into<PathBuf>,
@@ -691,7 +805,7 @@ impl WriteTextFileRequest {
 
 /// Response to `fs/write_text_file`
 #[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
-#[serde(default, rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]
 #[schemars(extend("x-side" = "client", "x-method" = FS_WRITE_TEXT_FILE_METHOD_NAME))]
 #[non_exhaustive]
 pub struct WriteTextFileResponse {
@@ -752,6 +866,7 @@ pub struct ReadTextFileRequest {
 }
 
 impl ReadTextFileRequest {
+    #[must_use]
     pub fn new(session_id: impl Into<SessionId>, path: impl Into<PathBuf>) -> Self {
         Self {
             session_id: session_id.into(),
@@ -805,6 +920,7 @@ pub struct ReadTextFileResponse {
 }
 
 impl ReadTextFileResponse {
+    #[must_use]
     pub fn new(content: impl Into<String>) -> Self {
         Self {
             content: content.into(),
@@ -833,6 +949,7 @@ impl ReadTextFileResponse {
 pub struct TerminalId(pub Arc<str>);
 
 impl TerminalId {
+    #[must_use]
     pub fn new(id: impl Into<Arc<str>>) -> Self {
         Self(id.into())
     }
@@ -877,6 +994,7 @@ pub struct CreateTerminalRequest {
 }
 
 impl CreateTerminalRequest {
+    #[must_use]
     pub fn new(session_id: impl Into<SessionId>, command: impl Into<String>) -> Self {
         Self {
             session_id: session_id.into(),
@@ -1037,6 +1155,7 @@ pub struct TerminalOutputResponse {
 }
 
 impl TerminalOutputResponse {
+    #[must_use]
     pub fn new(output: impl Into<String>, truncated: bool) -> Self {
         Self {
             output: output.into(),
@@ -1139,12 +1258,12 @@ impl ReleaseTerminalResponse {
     }
 }
 
-/// Request to kill a terminal command without releasing the terminal.
+/// Request to kill a terminal without releasing it.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[schemars(extend("x-side" = "client", "x-method" = TERMINAL_KILL_METHOD_NAME))]
 #[non_exhaustive]
-pub struct KillTerminalCommandRequest {
+pub struct KillTerminalRequest {
     /// The session ID for this request.
     pub session_id: SessionId,
     /// The ID of the terminal to kill.
@@ -1158,7 +1277,7 @@ pub struct KillTerminalCommandRequest {
     pub meta: Option<Meta>,
 }
 
-impl KillTerminalCommandRequest {
+impl KillTerminalRequest {
     #[must_use]
     pub fn new(session_id: impl Into<SessionId>, terminal_id: impl Into<TerminalId>) -> Self {
         Self {
@@ -1180,12 +1299,12 @@ impl KillTerminalCommandRequest {
     }
 }
 
-/// Response to terminal/kill command method
+/// Response to `terminal/kill` method
 #[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[schemars(extend("x-side" = "client", "x-method" = TERMINAL_KILL_METHOD_NAME))]
 #[non_exhaustive]
-pub struct KillTerminalCommandResponse {
+pub struct KillTerminalResponse {
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
     /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
     /// these keys.
@@ -1195,7 +1314,7 @@ pub struct KillTerminalCommandResponse {
     pub meta: Option<Meta>,
 }
 
-impl KillTerminalCommandResponse {
+impl KillTerminalResponse {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
@@ -1358,10 +1477,29 @@ pub struct ClientCapabilities {
     /// File system capabilities supported by the client.
     /// Determines which file operations the agent can request.
     #[serde(default)]
-    pub fs: FileSystemCapability,
+    pub fs: FileSystemCapabilities,
     /// Whether the Client support all `terminal/*` methods.
     #[serde(default)]
     pub terminal: bool,
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// Authentication capabilities supported by the client.
+    /// Determines which authentication method types the agent may include
+    /// in its `InitializeResponse`.
+    #[cfg(feature = "unstable_auth_methods")]
+    #[serde(default)]
+    pub auth: AuthCapabilities,
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// Elicitation capabilities supported by the client.
+    /// Determines which elicitation modes the agent may use.
+    #[cfg(feature = "unstable_elicitation")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub elicitation: Option<ElicitationCapabilities>,
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
     /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
     /// these keys.
@@ -1380,12 +1518,96 @@ impl ClientCapabilities {
     /// File system capabilities supported by the client.
     /// Determines which file operations the agent can request.
     #[must_use]
-    pub fn fs(mut self, fs: FileSystemCapability) -> Self {
+    pub fn fs(mut self, fs: FileSystemCapabilities) -> Self {
         self.fs = fs;
         self
     }
 
     /// Whether the Client support all `terminal/*` methods.
+    #[must_use]
+    pub fn terminal(mut self, terminal: bool) -> Self {
+        self.terminal = terminal;
+        self
+    }
+
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// Authentication capabilities supported by the client.
+    /// Determines which authentication method types the agent may include
+    /// in its `InitializeResponse`.
+    #[cfg(feature = "unstable_auth_methods")]
+    #[must_use]
+    pub fn auth(mut self, auth: AuthCapabilities) -> Self {
+        self.auth = auth;
+        self
+    }
+
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// Elicitation capabilities supported by the client.
+    /// Determines which elicitation modes the agent may use.
+    #[cfg(feature = "unstable_elicitation")]
+    #[must_use]
+    pub fn elicitation(mut self, elicitation: impl IntoOption<ElicitationCapabilities>) -> Self {
+        self.elicitation = elicitation.into_option();
+        self
+    }
+
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[must_use]
+    pub fn meta(mut self, meta: impl IntoOption<Meta>) -> Self {
+        self.meta = meta.into_option();
+        self
+    }
+}
+
+/// **UNSTABLE**
+///
+/// This capability is not part of the spec yet, and may be removed or changed at any point.
+///
+/// Authentication capabilities supported by the client.
+///
+/// Advertised during initialization to inform the agent which authentication
+/// method types the client can handle. This governs opt-in types that require
+/// additional client-side support.
+#[cfg(feature = "unstable_auth_methods")]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct AuthCapabilities {
+    /// Whether the client supports `terminal` authentication methods.
+    ///
+    /// When `true`, the agent may include `terminal` entries in its authentication methods.
+    #[serde(default)]
+    pub terminal: bool,
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    pub meta: Option<Meta>,
+}
+
+#[cfg(feature = "unstable_auth_methods")]
+impl AuthCapabilities {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Whether the client supports `terminal` authentication methods.
+    ///
+    /// When `true`, the agent may include `AuthMethod::Terminal`
+    /// entries in its authentication methods.
     #[must_use]
     pub fn terminal(mut self, terminal: bool) -> Self {
         self.terminal = terminal;
@@ -1404,14 +1626,13 @@ impl ClientCapabilities {
     }
 }
 
-/// Filesystem capabilities supported by the client.
 /// File system capabilities that a client may support.
 ///
 /// See protocol docs: [FileSystem](https://agentclientprotocol.com/protocol/initialization#filesystem)
 #[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
-pub struct FileSystemCapability {
+pub struct FileSystemCapabilities {
     /// Whether the Client supports `fs/read_text_file` requests.
     #[serde(default)]
     pub read_text_file: bool,
@@ -1427,7 +1648,7 @@ pub struct FileSystemCapability {
     pub meta: Option<Meta>,
 }
 
-impl FileSystemCapability {
+impl FileSystemCapabilities {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
@@ -1485,6 +1706,12 @@ pub struct ClientMethodNames {
     pub terminal_wait_for_exit: &'static str,
     /// Method for killing a terminal.
     pub terminal_kill: &'static str,
+    /// Method for session elicitation.
+    #[cfg(feature = "unstable_elicitation")]
+    pub session_elicitation: &'static str,
+    /// Notification for elicitation completion.
+    #[cfg(feature = "unstable_elicitation")]
+    pub session_elicitation_complete: &'static str,
 }
 
 /// Constant containing all client method names.
@@ -1498,6 +1725,10 @@ pub const CLIENT_METHOD_NAMES: ClientMethodNames = ClientMethodNames {
     terminal_release: TERMINAL_RELEASE_METHOD_NAME,
     terminal_wait_for_exit: TERMINAL_WAIT_FOR_EXIT_METHOD_NAME,
     terminal_kill: TERMINAL_KILL_METHOD_NAME,
+    #[cfg(feature = "unstable_elicitation")]
+    session_elicitation: SESSION_ELICITATION_METHOD_NAME,
+    #[cfg(feature = "unstable_elicitation")]
+    session_elicitation_complete: SESSION_ELICITATION_COMPLETE,
 };
 
 /// Notification name for session updates.
@@ -1518,6 +1749,12 @@ pub(crate) const TERMINAL_RELEASE_METHOD_NAME: &str = "terminal/release";
 pub(crate) const TERMINAL_WAIT_FOR_EXIT_METHOD_NAME: &str = "terminal/wait_for_exit";
 /// Method for killing a terminal.
 pub(crate) const TERMINAL_KILL_METHOD_NAME: &str = "terminal/kill";
+/// Method name for session elicitation.
+#[cfg(feature = "unstable_elicitation")]
+pub(crate) const SESSION_ELICITATION_METHOD_NAME: &str = "session/elicitation";
+/// Notification name for elicitation completion.
+#[cfg(feature = "unstable_elicitation")]
+pub(crate) const SESSION_ELICITATION_COMPLETE: &str = "session/elicitation/complete";
 
 /// All possible requests that an agent can send to a client.
 ///
@@ -1603,10 +1840,17 @@ pub enum AgentRequest {
     /// the command as soon as elapsed, and then get the final output so it can be sent
     /// to the model.
     ///
-    /// Note: `terminal/release` when `TerminalId` is no longer needed.
+    /// Note: Call `terminal/release` when `TerminalId` is no longer needed.
     ///
     /// See protocol docs: [Terminals](https://agentclientprotocol.com/protocol/terminals)
-    KillTerminalCommandRequest(KillTerminalCommandRequest),
+    KillTerminalRequest(KillTerminalRequest),
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// Requests structured user input via a form or URL.
+    #[cfg(feature = "unstable_elicitation")]
+    ElicitationRequest(ElicitationRequest),
     /// Handles extension method requests from the agent.
     ///
     /// Allows the Agent to send an arbitrary request that is not part of the ACP spec.
@@ -1629,7 +1873,9 @@ impl AgentRequest {
             Self::TerminalOutputRequest(_) => CLIENT_METHOD_NAMES.terminal_output,
             Self::ReleaseTerminalRequest(_) => CLIENT_METHOD_NAMES.terminal_release,
             Self::WaitForTerminalExitRequest(_) => CLIENT_METHOD_NAMES.terminal_wait_for_exit,
-            Self::KillTerminalCommandRequest(_) => CLIENT_METHOD_NAMES.terminal_kill,
+            Self::KillTerminalRequest(_) => CLIENT_METHOD_NAMES.terminal_kill,
+            #[cfg(feature = "unstable_elicitation")]
+            Self::ElicitationRequest(_) => CLIENT_METHOD_NAMES.session_elicitation,
             Self::ExtMethodRequest(ext_request) => &ext_request.method,
         }
     }
@@ -1653,7 +1899,9 @@ pub enum ClientResponse {
     TerminalOutputResponse(TerminalOutputResponse),
     ReleaseTerminalResponse(#[serde(default)] ReleaseTerminalResponse),
     WaitForTerminalExitResponse(WaitForTerminalExitResponse),
-    KillTerminalResponse(#[serde(default)] KillTerminalCommandResponse),
+    KillTerminalResponse(#[serde(default)] KillTerminalResponse),
+    #[cfg(feature = "unstable_elicitation")]
+    ElicitationResponse(ElicitationResponse),
     ExtMethodResponse(ExtResponse),
 }
 
@@ -1681,6 +1929,13 @@ pub enum AgentNotification {
     ///
     /// See protocol docs: [Agent Reports Output](https://agentclientprotocol.com/protocol/prompt-turn#3-agent-reports-output)
     SessionNotification(SessionNotification),
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// Notification that a URL-based elicitation has completed.
+    #[cfg(feature = "unstable_elicitation")]
+    ElicitationCompleteNotification(ElicitationCompleteNotification),
     /// Handles extension notifications from the agent.
     ///
     /// Allows the Agent to send an arbitrary notification that is not part of the ACP spec.
@@ -1697,6 +1952,10 @@ impl AgentNotification {
     pub fn method(&self) -> &str {
         match self {
             Self::SessionNotification(_) => CLIENT_METHOD_NAMES.session_update,
+            #[cfg(feature = "unstable_elicitation")]
+            Self::ElicitationCompleteNotification(_) => {
+                CLIENT_METHOD_NAMES.session_elicitation_complete
+            }
             Self::ExtNotification(ext_notification) => &ext_notification.method,
         }
     }
@@ -1706,7 +1965,6 @@ impl AgentNotification {
 mod tests {
     use super::*;
 
-    #[cfg(feature = "unstable_session_info_update")]
     #[test]
     fn test_serialization_behavior() {
         use serde_json::json;

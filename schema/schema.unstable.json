@@ -1,5 +1,27 @@
 {
   "$defs": {
+    "AgentAuthCapabilities": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nAuthentication-related capabilities supported by the agent.",
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        },
+        "logout": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LogoutCapabilities"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Whether the agent supports the logout method.\n\nBy supplying `{}` it means that the agent supports the logout method."
+        }
+      },
+      "type": "object"
+    },
     "AgentCapabilities": {
       "description": "Capabilities supported by the agent.\n\nAdvertised during initialization to inform the client about\navailable features and content types.\n\nSee protocol docs: [Agent Capabilities](https://agentclientprotocol.com/protocol/initialization#agent-capabilities)",
       "properties": {
@@ -7,6 +29,15 @@
           "additionalProperties": true,
           "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
           "type": ["object", "null"]
+        },
+        "auth": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/AgentAuthCapabilities"
+            }
+          ],
+          "default": {},
+          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nAuthentication-related capabilities supported by the agent."
         },
         "loadSession": {
           "default": false,
@@ -66,6 +97,15 @@
                   ],
                   "description": "Handles session update notifications from the agent.\n\nThis is a notification endpoint (no response expected) that receives\nreal-time updates about session progress, including message chunks,\ntool calls, and execution plans.\n\nNote: Clients SHOULD continue accepting tool call updates even after\nsending a `session/cancel` notification, as the agent may send final\nupdates before responding with the cancelled stop reason.\n\nSee protocol docs: [Agent Reports Output](https://agentclientprotocol.com/protocol/prompt-turn#3-agent-reports-output)",
                   "title": "SessionNotification"
+                },
+                {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/ElicitationCompleteNotification"
+                    }
+                  ],
+                  "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nNotification that a URL-based elicitation has completed.",
+                  "title": "ElicitationCompleteNotification"
                 },
                 {
                   "allOf": [
@@ -167,11 +207,20 @@
                 {
                   "allOf": [
                     {
-                      "$ref": "#/$defs/KillTerminalCommandRequest"
+                      "$ref": "#/$defs/KillTerminalRequest"
                     }
                   ],
-                  "description": "Kills the terminal command without releasing the terminal\n\nWhile `terminal/release` will also kill the command, this method will keep\nthe `TerminalId` valid so it can be used with other methods.\n\nThis method can be helpful when implementing command timeouts which terminate\nthe command as soon as elapsed, and then get the final output so it can be sent\nto the model.\n\nNote: `terminal/release` when `TerminalId` is no longer needed.\n\nSee protocol docs: [Terminals](https://agentclientprotocol.com/protocol/terminals)",
-                  "title": "KillTerminalCommandRequest"
+                  "description": "Kills the terminal command without releasing the terminal\n\nWhile `terminal/release` will also kill the command, this method will keep\nthe `TerminalId` valid so it can be used with other methods.\n\nThis method can be helpful when implementing command timeouts which terminate\nthe command as soon as elapsed, and then get the final output so it can be sent\nto the model.\n\nNote: Call `terminal/release` when `TerminalId` is no longer needed.\n\nSee protocol docs: [Terminals](https://agentclientprotocol.com/protocol/terminals)",
+                  "title": "KillTerminalRequest"
+                },
+                {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/ElicitationRequest"
+                    }
+                  ],
+                  "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nRequests structured user input via a form or URL.",
+                  "title": "ElicitationRequest"
                 },
                 {
                   "allOf": [
@@ -223,6 +272,14 @@
                 {
                   "allOf": [
                     {
+                      "$ref": "#/$defs/LogoutResponse"
+                    }
+                  ],
+                  "title": "LogoutResponse"
+                },
+                {
+                  "allOf": [
+                    {
                       "$ref": "#/$defs/NewSessionResponse"
                     }
                   ],
@@ -259,6 +316,14 @@
                     }
                   ],
                   "title": "ResumeSessionResponse"
+                },
+                {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/CloseSessionResponse"
+                    }
+                  ],
+                  "title": "CloseSessionResponse"
                 },
                 {
                   "allOf": [
@@ -376,8 +441,100 @@
       "required": ["data", "mimeType"],
       "type": "object"
     },
+    "AuthCapabilities": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nAuthentication capabilities supported by the client.\n\nAdvertised during initialization to inform the agent which authentication\nmethod types the client can handle. This governs opt-in types that require\nadditional client-side support.",
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        },
+        "terminal": {
+          "default": false,
+          "description": "Whether the client supports `terminal` authentication methods.\n\nWhen `true`, the agent may include `terminal` entries in its authentication methods.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "AuthEnvVar": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nDescribes a single environment variable for an [`AuthMethodEnvVar`] authentication method.",
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        },
+        "label": {
+          "description": "Human-readable label for this variable, displayed in client UI.",
+          "type": ["string", "null"]
+        },
+        "name": {
+          "description": "The environment variable name (e.g. `\"OPENAI_API_KEY\"`).",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "description": "Whether this variable is optional.\n\nDefaults to `false`.",
+          "type": "boolean"
+        },
+        "secret": {
+          "default": true,
+          "description": "Whether this value is a secret (e.g. API key, token).\nClients should use a password-style input for secret vars.\n\nDefaults to `true`.",
+          "type": "boolean"
+        }
+      },
+      "required": ["name"],
+      "type": "object"
+    },
     "AuthMethod": {
-      "description": "Describes an available authentication method.",
+      "anyOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/AuthMethodEnvVar"
+            }
+          ],
+          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nUser provides a key that the client passes to the agent as an environment variable.",
+          "properties": {
+            "type": {
+              "const": "env_var",
+              "type": "string"
+            }
+          },
+          "required": ["type"],
+          "type": "object"
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/AuthMethodTerminal"
+            }
+          ],
+          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nClient runs an interactive terminal for the user to authenticate via a TUI.",
+          "properties": {
+            "type": {
+              "const": "terminal",
+              "type": "string"
+            }
+          },
+          "required": ["type"],
+          "type": "object"
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/AuthMethodAgent"
+            }
+          ],
+          "description": "Agent handles authentication itself.\n\nThis is the default when no `type` is specified.",
+          "title": "agent"
+        }
+      ],
+      "description": "Describes an available authentication method.\n\nThe `type` field acts as the discriminator in the serialized JSON form.\nWhen no `type` is present, the method is treated as `agent`."
+    },
+    "AuthMethodAgent": {
+      "description": "Agent handles authentication itself.\n\nThis is the default authentication method type.",
       "properties": {
         "_meta": {
           "additionalProperties": true,
@@ -387,6 +544,79 @@
         "description": {
           "description": "Optional description providing more details about this authentication method.",
           "type": ["string", "null"]
+        },
+        "id": {
+          "description": "Unique identifier for this authentication method.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Human-readable name of the authentication method.",
+          "type": "string"
+        }
+      },
+      "required": ["id", "name"],
+      "type": "object"
+    },
+    "AuthMethodEnvVar": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nEnvironment variable authentication method.\n\nThe user provides credentials that the client passes to the agent as environment variables.",
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        },
+        "description": {
+          "description": "Optional description providing more details about this authentication method.",
+          "type": ["string", "null"]
+        },
+        "id": {
+          "description": "Unique identifier for this authentication method.",
+          "type": "string"
+        },
+        "link": {
+          "description": "Optional link to a page where the user can obtain their credentials.",
+          "type": ["string", "null"]
+        },
+        "name": {
+          "description": "Human-readable name of the authentication method.",
+          "type": "string"
+        },
+        "vars": {
+          "description": "The environment variables the client should set.",
+          "items": {
+            "$ref": "#/$defs/AuthEnvVar"
+          },
+          "type": "array"
+        }
+      },
+      "required": ["id", "name", "vars"],
+      "type": "object"
+    },
+    "AuthMethodTerminal": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nTerminal-based authentication method.\n\nThe client runs an interactive terminal for the user to authenticate via a TUI.",
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        },
+        "args": {
+          "description": "Additional arguments to pass when running the agent binary for terminal auth.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "description": {
+          "description": "Optional description providing more details about this authentication method.",
+          "type": ["string", "null"]
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Additional environment variables to set when running the agent binary for terminal auth.",
+          "type": "object"
         },
         "id": {
           "description": "Unique identifier for this authentication method.",
@@ -516,6 +746,24 @@
       "required": ["blob", "uri"],
       "type": "object"
     },
+    "BooleanPropertySchema": {
+      "description": "Schema for boolean properties in an elicitation form.",
+      "properties": {
+        "default": {
+          "description": "Default value.",
+          "type": ["boolean", "null"]
+        },
+        "description": {
+          "description": "Human-readable description.",
+          "type": ["string", "null"]
+        },
+        "title": {
+          "description": "Optional title for the property.",
+          "type": ["string", "null"]
+        }
+      },
+      "type": "object"
+    },
     "CancelNotification": {
       "description": "Notification to cancel ongoing operations for a session.\n\nSee protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/prompt-turn#cancellation)",
       "properties": {
@@ -568,10 +816,32 @@
           "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
           "type": ["object", "null"]
         },
+        "auth": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/AuthCapabilities"
+            }
+          ],
+          "default": {
+            "terminal": false
+          },
+          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nAuthentication capabilities supported by the client.\nDetermines which authentication method types the agent may include\nin its `InitializeResponse`."
+        },
+        "elicitation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ElicitationCapabilities"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nElicitation capabilities supported by the client.\nDetermines which elicitation modes the agent may use."
+        },
         "fs": {
           "allOf": [
             {
-              "$ref": "#/$defs/FileSystemCapability"
+              "$ref": "#/$defs/FileSystemCapabilities"
             }
           ],
           "default": {
@@ -661,6 +931,15 @@
                 {
                   "allOf": [
                     {
+                      "$ref": "#/$defs/LogoutRequest"
+                    }
+                  ],
+                  "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nLogs out of the current authenticated state.\n\nAfter a successful logout, all new sessions will require authentication.\nThere is no guarantee about the behavior of already running sessions.",
+                  "title": "LogoutRequest"
+                },
+                {
+                  "allOf": [
+                    {
                       "$ref": "#/$defs/NewSessionRequest"
                     }
                   ],
@@ -682,7 +961,7 @@
                       "$ref": "#/$defs/ListSessionsRequest"
                     }
                   ],
-                  "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nLists existing sessions known to the agent.\n\nThis method is only available if the agent advertises the `listSessions` capability.\n\nThe agent should return metadata about sessions with optional filtering and pagination support.",
+                  "description": "Lists existing sessions known to the agent.\n\nThis method is only available if the agent advertises the `sessionCapabilities.list` capability.\n\nThe agent should return metadata about sessions with optional filtering and pagination support.",
                   "title": "ListSessionsRequest"
                 },
                 {
@@ -706,6 +985,15 @@
                 {
                   "allOf": [
                     {
+                      "$ref": "#/$defs/CloseSessionRequest"
+                    }
+                  ],
+                  "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nCloses an active session and frees up any resources associated with it.\n\nThis method is only available if the agent advertises the `session.close` capability.\n\nThe agent must cancel any ongoing work (as if `session/cancel` was called)\nand then free up any resources associated with the session.",
+                  "title": "CloseSessionRequest"
+                },
+                {
+                  "allOf": [
+                    {
                       "$ref": "#/$defs/SetSessionModeRequest"
                     }
                   ],
@@ -718,7 +1006,7 @@
                       "$ref": "#/$defs/SetSessionConfigOptionRequest"
                     }
                   ],
-                  "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nSets the current value for a session configuration option.",
+                  "description": "Sets the current value for a session configuration option.",
                   "title": "SetSessionConfigOptionRequest"
                 },
                 {
@@ -829,10 +1117,18 @@
                 {
                   "allOf": [
                     {
-                      "$ref": "#/$defs/KillTerminalCommandResponse"
+                      "$ref": "#/$defs/KillTerminalResponse"
                     }
                   ],
                   "title": "KillTerminalResponse"
+                },
+                {
+                  "allOf": [
+                    {
+                      "$ref": "#/$defs/ElicitationResponse"
+                    }
+                  ],
+                  "title": "ElicitationResponse"
                 },
                 {
                   "allOf": [
@@ -866,8 +1162,43 @@
       ],
       "x-docs-ignore": true
     },
+    "CloseSessionRequest": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nRequest parameters for closing an active session.\n\nIf supported, the agent **must** cancel any ongoing work related to the session\n(treat it as if `session/cancel` was called) and then free up any resources\nassociated with the session.\n\nOnly available if the Agent supports the `session.close` capability.",
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        },
+        "sessionId": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/SessionId"
+            }
+          ],
+          "description": "The ID of the session to close."
+        }
+      },
+      "required": ["sessionId"],
+      "type": "object",
+      "x-method": "session/close",
+      "x-side": "agent"
+    },
+    "CloseSessionResponse": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nResponse from closing a session.",
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        }
+      },
+      "type": "object",
+      "x-method": "session/close",
+      "x-side": "agent"
+    },
     "ConfigOptionUpdate": {
-      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nSession configuration options have been updated.",
+      "description": "Session configuration options have been updated.",
       "properties": {
         "_meta": {
           "additionalProperties": true,
@@ -1008,9 +1339,29 @@
             }
           ],
           "description": "A single item of content"
+        },
+        "messageId": {
+          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nA unique identifier for the message this chunk belongs to.\n\nAll chunks belonging to the same message share the same `messageId`.\nA change in `messageId` indicates a new message has started.\nBoth clients and agents MUST use UUID format for message IDs.",
+          "type": ["string", "null"]
         }
       },
       "required": ["content"],
+      "type": "object"
+    },
+    "Cost": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nCost information for a session.",
+      "properties": {
+        "amount": {
+          "description": "Total cumulative cost for session.",
+          "format": "double",
+          "type": "number"
+        },
+        "currency": {
+          "description": "ISO 4217 currency code (e.g., \"USD\", \"EUR\").",
+          "type": "string"
+        }
+      },
+      "required": ["amount", "currency"],
       "type": "object"
     },
     "CreateTerminalRequest": {
@@ -1125,6 +1476,441 @@
       "required": ["path", "newText"],
       "type": "object"
     },
+    "ElicitationAcceptAction": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nThe user accepted the elicitation and provided content.",
+      "properties": {
+        "content": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ElicitationContentValue"
+          },
+          "description": "The user-provided content, if any, as an object matching the requested schema.",
+          "type": ["object", "null"]
+        }
+      },
+      "type": "object"
+    },
+    "ElicitationAction": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nThe user's action in response to an elicitation.",
+      "discriminator": {
+        "propertyName": "action"
+      },
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/ElicitationAcceptAction"
+            }
+          ],
+          "description": "The user accepted and provided content.",
+          "properties": {
+            "action": {
+              "const": "accept",
+              "type": "string"
+            }
+          },
+          "required": ["action"],
+          "type": "object"
+        },
+        {
+          "description": "The user declined the elicitation.",
+          "properties": {
+            "action": {
+              "const": "decline",
+              "type": "string"
+            }
+          },
+          "required": ["action"],
+          "type": "object"
+        },
+        {
+          "description": "The elicitation was cancelled.",
+          "properties": {
+            "action": {
+              "const": "cancel",
+              "type": "string"
+            }
+          },
+          "required": ["action"],
+          "type": "object"
+        }
+      ]
+    },
+    "ElicitationCapabilities": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nElicitation capabilities supported by the client.",
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        },
+        "form": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ElicitationFormCapabilities"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Whether the client supports form-based elicitation."
+        },
+        "url": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ElicitationUrlCapabilities"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Whether the client supports URL-based elicitation."
+        }
+      },
+      "type": "object"
+    },
+    "ElicitationCompleteNotification": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nNotification sent by the agent when a URL-based elicitation is complete.",
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        },
+        "elicitationId": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/ElicitationId"
+            }
+          ],
+          "description": "The ID of the elicitation that completed."
+        }
+      },
+      "required": ["elicitationId"],
+      "type": "object",
+      "x-method": "session/elicitation/complete",
+      "x-side": "client"
+    },
+    "ElicitationContentValue": {
+      "anyOf": [
+        {
+          "title": "String",
+          "type": "string"
+        },
+        {
+          "format": "int64",
+          "title": "Integer",
+          "type": "integer"
+        },
+        {
+          "format": "double",
+          "title": "Number",
+          "type": "number"
+        },
+        {
+          "title": "Boolean",
+          "type": "boolean"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "title": "StringArray",
+          "type": "array"
+        }
+      ]
+    },
+    "ElicitationFormCapabilities": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nForm-based elicitation capabilities.",
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        }
+      },
+      "type": "object"
+    },
+    "ElicitationFormMode": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nForm-based elicitation mode where the client renders a form from the provided schema.",
+      "properties": {
+        "requestedSchema": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/ElicitationSchema"
+            }
+          ],
+          "description": "A JSON Schema describing the form fields to present to the user."
+        }
+      },
+      "required": ["requestedSchema"],
+      "type": "object"
+    },
+    "ElicitationId": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nUnique identifier for an elicitation.",
+      "type": "string"
+    },
+    "ElicitationPropertySchema": {
+      "description": "Property schema for elicitation form fields.\n\nEach variant corresponds to a JSON Schema `\"type\"` value.\nSingle-select enums use the `String` variant with `enum` or `oneOf` set.\nMulti-select enums use the `Array` variant.",
+      "discriminator": {
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/StringPropertySchema"
+            }
+          ],
+          "description": "String property (or single-select enum when `enum`/`oneOf` is set).",
+          "properties": {
+            "type": {
+              "const": "string",
+              "type": "string"
+            }
+          },
+          "required": ["type"],
+          "type": "object"
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/NumberPropertySchema"
+            }
+          ],
+          "description": "Number (floating-point) property.",
+          "properties": {
+            "type": {
+              "const": "number",
+              "type": "string"
+            }
+          },
+          "required": ["type"],
+          "type": "object"
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/IntegerPropertySchema"
+            }
+          ],
+          "description": "Integer property.",
+          "properties": {
+            "type": {
+              "const": "integer",
+              "type": "string"
+            }
+          },
+          "required": ["type"],
+          "type": "object"
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/BooleanPropertySchema"
+            }
+          ],
+          "description": "Boolean property.",
+          "properties": {
+            "type": {
+              "const": "boolean",
+              "type": "string"
+            }
+          },
+          "required": ["type"],
+          "type": "object"
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/MultiSelectPropertySchema"
+            }
+          ],
+          "description": "Multi-select array property.",
+          "properties": {
+            "type": {
+              "const": "array",
+              "type": "string"
+            }
+          },
+          "required": ["type"],
+          "type": "object"
+        }
+      ]
+    },
+    "ElicitationRequest": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nRequest from the agent to elicit structured user input.\n\nThe agent sends this to the client to request information from the user,\neither via a form or by directing them to a URL.",
+      "discriminator": {
+        "propertyName": "mode"
+      },
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/ElicitationFormMode"
+            }
+          ],
+          "description": "Form-based elicitation where the client renders a form from the provided schema.",
+          "properties": {
+            "mode": {
+              "const": "form",
+              "type": "string"
+            }
+          },
+          "required": ["mode"],
+          "type": "object"
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/ElicitationUrlMode"
+            }
+          ],
+          "description": "URL-based elicitation where the client directs the user to a URL.",
+          "properties": {
+            "mode": {
+              "const": "url",
+              "type": "string"
+            }
+          },
+          "required": ["mode"],
+          "type": "object"
+        }
+      ],
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        },
+        "message": {
+          "description": "A human-readable message describing what input is needed.",
+          "type": "string"
+        },
+        "sessionId": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/SessionId"
+            }
+          ],
+          "description": "The session ID for this request."
+        }
+      },
+      "required": ["sessionId", "message"],
+      "type": "object",
+      "x-method": "session/elicitation",
+      "x-side": "client"
+    },
+    "ElicitationResponse": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nResponse from the client to an elicitation request.",
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        },
+        "action": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/ElicitationAction"
+            }
+          ],
+          "description": "The user's action in response to the elicitation."
+        }
+      },
+      "required": ["action"],
+      "type": "object",
+      "x-method": "session/elicitation",
+      "x-side": "client"
+    },
+    "ElicitationSchema": {
+      "description": "Type-safe elicitation schema for requesting structured user input.\n\nThis represents a JSON Schema object with primitive-typed properties,\nas required by the elicitation specification.",
+      "properties": {
+        "description": {
+          "description": "Optional description of what this schema represents.",
+          "type": ["string", "null"]
+        },
+        "properties": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ElicitationPropertySchema"
+          },
+          "default": {},
+          "description": "Property definitions (must be primitive types).",
+          "type": "object"
+        },
+        "required": {
+          "description": "List of required property names.",
+          "items": {
+            "type": "string"
+          },
+          "type": ["array", "null"]
+        },
+        "title": {
+          "description": "Optional title for the schema.",
+          "type": ["string", "null"]
+        },
+        "type": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/ElicitationSchemaType"
+            }
+          ],
+          "default": "object",
+          "description": "Type discriminator. Always `\"object\"`."
+        }
+      },
+      "type": "object"
+    },
+    "ElicitationSchemaType": {
+      "description": "Type discriminator for elicitation schemas.",
+      "oneOf": [
+        {
+          "const": "object",
+          "description": "Object schema type.",
+          "type": "string"
+        }
+      ]
+    },
+    "ElicitationStringType": {
+      "description": "Items definition for untitled multi-select enum properties.",
+      "oneOf": [
+        {
+          "const": "string",
+          "description": "String schema type.",
+          "type": "string"
+        }
+      ]
+    },
+    "ElicitationUrlCapabilities": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nURL-based elicitation capabilities.",
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        }
+      },
+      "type": "object"
+    },
+    "ElicitationUrlMode": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nURL-based elicitation mode where the client directs the user to a URL.",
+      "properties": {
+        "elicitationId": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/ElicitationId"
+            }
+          ],
+          "description": "The unique identifier for this elicitation."
+        },
+        "url": {
+          "description": "The URL to direct the user to.",
+          "format": "uri",
+          "type": "string"
+        }
+      },
+      "required": ["elicitationId", "url"],
+      "type": "object"
+    },
     "EmbeddedResource": {
       "description": "The contents of a resource, embedded into a prompt or tool call result.",
       "properties": {
@@ -1170,6 +1956,21 @@
         }
       ],
       "description": "Resource content that can be embedded in a message."
+    },
+    "EnumOption": {
+      "description": "A titled enum option with a const value and human-readable title.",
+      "properties": {
+        "const": {
+          "description": "The constant value for this option.",
+          "type": "string"
+        },
+        "title": {
+          "description": "Human-readable title for this option.",
+          "type": "string"
+        }
+      },
+      "required": ["const", "title"],
+      "type": "object"
     },
     "EnvVariable": {
       "description": "An environment variable to set when launching an MCP server.",
@@ -1272,6 +2073,13 @@
           "type": "integer"
         },
         {
+          "const": -32042,
+          "description": "**URL elicitation required**: **UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nThe agent requires user input via a URL-based elicitation before it can proceed.",
+          "format": "int32",
+          "title": "URL elicitation required",
+          "type": "integer"
+        },
+        {
           "description": "Other undefined error code.",
           "format": "int32",
           "title": "Other",
@@ -1289,8 +2097,8 @@
     "ExtResponse": {
       "description": "Allows for sending an arbitrary response to an [`ExtRequest`] that is not part of the ACP spec.\nExtension methods provide a way to add custom functionality while maintaining\nprotocol compatibility.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)"
     },
-    "FileSystemCapability": {
-      "description": "Filesystem capabilities supported by the client.\nFile system capabilities that a client may support.\n\nSee protocol docs: [FileSystem](https://agentclientprotocol.com/protocol/initialization#filesystem)",
+    "FileSystemCapabilities": {
+      "description": "File system capabilities that a client may support.\n\nSee protocol docs: [FileSystem](https://agentclientprotocol.com/protocol/initialization#filesystem)",
       "properties": {
         "_meta": {
           "additionalProperties": true,
@@ -1352,7 +2160,7 @@
           "type": ["object", "null"]
         },
         "configOptions": {
-          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nInitial session configuration options if supported by the Agent.",
+          "description": "Initial session configuration options if supported by the Agent.",
           "items": {
             "$ref": "#/$defs/SessionConfigOption"
           },
@@ -1484,6 +2292,9 @@
             }
           ],
           "default": {
+            "auth": {
+              "terminal": false
+            },
             "fs": {
               "readTextFile": false,
               "writeTextFile": false
@@ -1532,6 +2343,7 @@
             }
           ],
           "default": {
+            "auth": {},
             "loadSession": false,
             "mcpCapabilities": {
               "http": false,
@@ -1579,8 +2391,37 @@
       "x-method": "initialize",
       "x-side": "agent"
     },
-    "KillTerminalCommandRequest": {
-      "description": "Request to kill a terminal command without releasing the terminal.",
+    "IntegerPropertySchema": {
+      "description": "Schema for integer properties in an elicitation form.",
+      "properties": {
+        "default": {
+          "description": "Default value.",
+          "format": "int64",
+          "type": ["integer", "null"]
+        },
+        "description": {
+          "description": "Human-readable description.",
+          "type": ["string", "null"]
+        },
+        "maximum": {
+          "description": "Maximum value (inclusive).",
+          "format": "int64",
+          "type": ["integer", "null"]
+        },
+        "minimum": {
+          "description": "Minimum value (inclusive).",
+          "format": "int64",
+          "type": ["integer", "null"]
+        },
+        "title": {
+          "description": "Optional title for the property.",
+          "type": ["string", "null"]
+        }
+      },
+      "type": "object"
+    },
+    "KillTerminalRequest": {
+      "description": "Request to kill a terminal without releasing it.",
       "properties": {
         "_meta": {
           "additionalProperties": true,
@@ -1605,8 +2446,8 @@
       "x-method": "terminal/kill",
       "x-side": "client"
     },
-    "KillTerminalCommandResponse": {
-      "description": "Response to terminal/kill command method",
+    "KillTerminalResponse": {
+      "description": "Response to `terminal/kill` method",
       "properties": {
         "_meta": {
           "additionalProperties": true,
@@ -1619,7 +2460,7 @@
       "x-side": "client"
     },
     "ListSessionsRequest": {
-      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nRequest parameters for listing existing sessions.\n\nOnly available if the Agent supports the `listSessions` capability.",
+      "description": "Request parameters for listing existing sessions.\n\nOnly available if the Agent supports the `sessionCapabilities.list` capability.",
       "properties": {
         "_meta": {
           "additionalProperties": true,
@@ -1640,7 +2481,7 @@
       "x-side": "agent"
     },
     "ListSessionsResponse": {
-      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nResponse from listing sessions.",
+      "description": "Response from listing sessions.",
       "properties": {
         "_meta": {
           "additionalProperties": true,
@@ -1706,7 +2547,7 @@
           "type": ["object", "null"]
         },
         "configOptions": {
-          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nInitial session configuration options if supported by the Agent.",
+          "description": "Initial session configuration options if supported by the Agent.",
           "items": {
             "$ref": "#/$defs/SessionConfigOption"
           },
@@ -1737,6 +2578,43 @@
       },
       "type": "object",
       "x-method": "session/load",
+      "x-side": "agent"
+    },
+    "LogoutCapabilities": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nLogout capabilities supported by the agent.\n\nBy supplying `{}` it means that the agent supports the logout method.",
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        }
+      },
+      "type": "object"
+    },
+    "LogoutRequest": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nRequest parameters for the logout method.\n\nTerminates the current authenticated session.",
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        }
+      },
+      "type": "object",
+      "x-method": "logout",
+      "x-side": "agent"
+    },
+    "LogoutResponse": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nResponse to the `logout` method.",
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        }
+      },
+      "type": "object",
+      "x-method": "logout",
       "x-side": "agent"
     },
     "McpCapabilities": {
@@ -1926,6 +2804,71 @@
       "required": ["modelId", "name"],
       "type": "object"
     },
+    "MultiSelectItems": {
+      "anyOf": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/UntitledMultiSelectItems"
+            }
+          ],
+          "description": "Untitled multi-select items with plain string values.",
+          "title": "Untitled"
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/TitledMultiSelectItems"
+            }
+          ],
+          "description": "Titled multi-select items with human-readable labels.",
+          "title": "Titled"
+        }
+      ],
+      "description": "Items for a multi-select (array) property schema."
+    },
+    "MultiSelectPropertySchema": {
+      "description": "Schema for multi-select (array) properties in an elicitation form.",
+      "properties": {
+        "default": {
+          "description": "Default selected values.",
+          "items": {
+            "type": "string"
+          },
+          "type": ["array", "null"]
+        },
+        "description": {
+          "description": "Human-readable description.",
+          "type": ["string", "null"]
+        },
+        "items": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/MultiSelectItems"
+            }
+          ],
+          "description": "The items definition describing allowed values."
+        },
+        "maxItems": {
+          "description": "Maximum number of items to select.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "minItems": {
+          "description": "Minimum number of items to select.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "title": {
+          "description": "Optional title for the property.",
+          "type": ["string", "null"]
+        }
+      },
+      "required": ["items"],
+      "type": "object"
+    },
     "NewSessionRequest": {
       "description": "Request parameters for creating a new session.\n\nSee protocol docs: [Creating a Session](https://agentclientprotocol.com/protocol/session-setup#creating-a-session)",
       "properties": {
@@ -1960,7 +2903,7 @@
           "type": ["object", "null"]
         },
         "configOptions": {
-          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nInitial session configuration options if supported by the Agent.",
+          "description": "Initial session configuration options if supported by the Agent.",
           "items": {
             "$ref": "#/$defs/SessionConfigOption"
           },
@@ -2001,6 +2944,35 @@
       "type": "object",
       "x-method": "session/new",
       "x-side": "agent"
+    },
+    "NumberPropertySchema": {
+      "description": "Schema for number (floating-point) properties in an elicitation form.",
+      "properties": {
+        "default": {
+          "description": "Default value.",
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "description": {
+          "description": "Human-readable description.",
+          "type": ["string", "null"]
+        },
+        "maximum": {
+          "description": "Maximum value (inclusive).",
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "minimum": {
+          "description": "Minimum value (inclusive).",
+          "format": "double",
+          "type": ["number", "null"]
+        },
+        "title": {
+          "description": "Optional title for the property.",
+          "type": ["string", "null"]
+        }
+      },
+      "type": "object"
     },
     "PermissionOption": {
       "description": "An option presented to the user when requesting permission.",
@@ -2188,6 +3160,10 @@
           "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
           "type": ["object", "null"]
         },
+        "messageId": {
+          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nA client-generated unique identifier for this user message.\n\nIf provided, the Agent SHOULD echo this value as `userMessageId` in the\n[`PromptResponse`] to confirm it was recorded.\nBoth clients and agents MUST use UUID format for message IDs.",
+          "type": ["string", "null"]
+        },
         "prompt": {
           "description": "The blocks of content that compose the user's message.\n\nAs a baseline, the Agent MUST support [`ContentBlock::Text`] and [`ContentBlock::ResourceLink`],\nwhile other variants are optionally enabled via [`PromptCapabilities`].\n\nThe Client MUST adapt its interface according to [`PromptCapabilities`].\n\nThe client MAY include referenced pieces of context as either\n[`ContentBlock::Resource`] or [`ContentBlock::ResourceLink`].\n\nWhen available, [`ContentBlock::Resource`] is preferred\nas it avoids extra round-trips and allows the message to include\npieces of context from sources the agent may not have access to.",
           "items": {
@@ -2224,6 +3200,21 @@
             }
           ],
           "description": "Indicates why the agent stopped processing the turn."
+        },
+        "usage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Usage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nToken usage for this turn (optional)."
+        },
+        "userMessageId": {
+          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nThe acknowledged user message ID.\n\nIf the client provided a `messageId` in the [`PromptRequest`], the agent echoes it here\nto confirm it was recorded. If the client did not provide one, the agent MAY assign one\nand return it here. Absence of this field indicates the agent did not record a message ID.",
+          "type": ["string", "null"]
         }
       },
       "required": ["stopReason"],
@@ -2527,7 +3518,7 @@
           "type": ["object", "null"]
         },
         "configOptions": {
-          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nInitial session configuration options if supported by the Agent.",
+          "description": "Initial session configuration options if supported by the Agent.",
           "items": {
             "$ref": "#/$defs/SessionConfigOption"
           },
@@ -2593,6 +3584,17 @@
           "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
           "type": ["object", "null"]
         },
+        "close": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SessionCloseCapabilities"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nWhether the agent supports `session/close`."
+        },
         "fork": {
           "anyOf": [
             {
@@ -2613,7 +3615,7 @@
               "type": "null"
             }
           ],
-          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nWhether the agent supports `session/list`."
+          "description": "Whether the agent supports `session/list`."
         },
         "resume": {
           "anyOf": [
@@ -2629,16 +3631,38 @@
       },
       "type": "object"
     },
+    "SessionCloseCapabilities": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nCapabilities for the `session/close` method.\n\nBy supplying `{}` it means that the agent supports closing of sessions.",
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        }
+      },
+      "type": "object"
+    },
+    "SessionConfigBoolean": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nA boolean on/off toggle session configuration option payload.",
+      "properties": {
+        "currentValue": {
+          "description": "The current value of the boolean option.",
+          "type": "boolean"
+        }
+      },
+      "required": ["currentValue"],
+      "type": "object"
+    },
     "SessionConfigGroupId": {
-      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nUnique identifier for a session configuration option value group.",
+      "description": "Unique identifier for a session configuration option value group.",
       "type": "string"
     },
     "SessionConfigId": {
-      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nUnique identifier for a session configuration option.",
+      "description": "Unique identifier for a session configuration option.",
       "type": "string"
     },
     "SessionConfigOption": {
-      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nA session configuration option selector and its current state.",
+      "description": "A session configuration option selector and its current state.",
       "discriminator": {
         "propertyName": "type"
       },
@@ -2653,6 +3677,22 @@
           "properties": {
             "type": {
               "const": "select",
+              "type": "string"
+            }
+          },
+          "required": ["type"],
+          "type": "object"
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/SessionConfigBoolean"
+            }
+          ],
+          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nBoolean on/off toggle.",
+          "properties": {
+            "type": {
+              "const": "boolean",
               "type": "string"
             }
           },
@@ -2720,10 +3760,10 @@
           "type": "string"
         }
       ],
-      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nSemantic category for a session configuration option.\n\nThis is intended to help Clients distinguish broadly common selectors (e.g. model selector vs\nsession mode selector vs thought/reasoning level) for UX purposes (keyboard shortcuts, icons,\nplacement). It MUST NOT be required for correctness. Clients MUST handle missing or unknown\ncategories gracefully.\n\nCategory names beginning with `_` are free for custom use, like other ACP extension methods.\nCategory names that do not begin with `_` are reserved for the ACP spec."
+      "description": "Semantic category for a session configuration option.\n\nThis is intended to help Clients distinguish broadly common selectors (e.g. model selector vs\nsession mode selector vs thought/reasoning level) for UX purposes (keyboard shortcuts, icons,\nplacement). It MUST NOT be required for correctness. Clients MUST handle missing or unknown\ncategories gracefully.\n\nCategory names beginning with `_` are free for custom use, like other ACP extension methods.\nCategory names that do not begin with `_` are reserved for the ACP spec."
     },
     "SessionConfigSelect": {
-      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nA single-value selector (dropdown) session configuration option payload.",
+      "description": "A single-value selector (dropdown) session configuration option payload.",
       "properties": {
         "currentValue": {
           "allOf": [
@@ -2746,7 +3786,7 @@
       "type": "object"
     },
     "SessionConfigSelectGroup": {
-      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nA group of possible values for a session configuration option.",
+      "description": "A group of possible values for a session configuration option.",
       "properties": {
         "_meta": {
           "additionalProperties": true,
@@ -2777,7 +3817,7 @@
       "type": "object"
     },
     "SessionConfigSelectOption": {
-      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nA possible value for a session configuration option.",
+      "description": "A possible value for a session configuration option.",
       "properties": {
         "_meta": {
           "additionalProperties": true,
@@ -2823,10 +3863,10 @@
           "type": "array"
         }
       ],
-      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nPossible values for a session configuration option."
+      "description": "Possible values for a session configuration option."
     },
     "SessionConfigValueId": {
-      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nUnique identifier for a session configuration option value.",
+      "description": "Unique identifier for a session configuration option value.",
       "type": "string"
     },
     "SessionForkCapabilities": {
@@ -2845,7 +3885,7 @@
       "type": "string"
     },
     "SessionInfo": {
-      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nInformation about a session returned by session/list",
+      "description": "Information about a session returned by session/list",
       "properties": {
         "_meta": {
           "additionalProperties": true,
@@ -2896,7 +3936,7 @@
       "type": "object"
     },
     "SessionListCapabilities": {
-      "description": "Capabilities for the `session/list` method.\n\nBy supplying `{}` it means that the agent supports listing of sessions.\n\nFurther capabilities can be added in the future for other means of filtering or searching the list.",
+      "description": "Capabilities for the `session/list` method.\n\nBy supplying `{}` it means that the agent supports listing of sessions.",
       "properties": {
         "_meta": {
           "additionalProperties": true,
@@ -3166,7 +4206,7 @@
               "$ref": "#/$defs/ConfigOptionUpdate"
             }
           ],
-          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nSession configuration options have been updated.",
+          "description": "Session configuration options have been updated.",
           "properties": {
             "sessionUpdate": {
               "const": "config_option_update",
@@ -3191,11 +4231,60 @@
           },
           "required": ["sessionUpdate"],
           "type": "object"
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/UsageUpdate"
+            }
+          ],
+          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nContext window and cost update for the session.",
+          "properties": {
+            "sessionUpdate": {
+              "const": "usage_update",
+              "type": "string"
+            }
+          },
+          "required": ["sessionUpdate"],
+          "type": "object"
         }
       ]
     },
     "SetSessionConfigOptionRequest": {
-      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nRequest parameters for setting a session configuration option.",
+      "anyOf": [
+        {
+          "description": "A boolean value (`type: \"boolean\"`).",
+          "properties": {
+            "type": {
+              "const": "boolean",
+              "type": "string"
+            },
+            "value": {
+              "description": "The boolean value.",
+              "type": "boolean"
+            }
+          },
+          "required": ["type", "value"],
+          "type": "object"
+        },
+        {
+          "description": "A [`SessionConfigValueId`] string value.\n\nThis is the default when `type` is absent on the wire. Unknown `type`\nvalues with string payloads also gracefully deserialize into this\nvariant.",
+          "properties": {
+            "value": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/SessionConfigValueId"
+                }
+              ],
+              "description": "The value ID."
+            }
+          },
+          "required": ["value"],
+          "title": "value_id",
+          "type": "object"
+        }
+      ],
+      "description": "Request parameters for setting a session configuration option.",
       "properties": {
         "_meta": {
           "additionalProperties": true,
@@ -3217,23 +4306,15 @@
             }
           ],
           "description": "The ID of the session to set the configuration option for."
-        },
-        "value": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/SessionConfigValueId"
-            }
-          ],
-          "description": "The ID of the configuration option value to set."
         }
       },
-      "required": ["sessionId", "configId", "value"],
+      "required": ["sessionId", "configId"],
       "type": "object",
       "x-method": "session/set_config_option",
       "x-side": "agent"
     },
     "SetSessionConfigOptionResponse": {
-      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nResponse to `session/set_config_option` method.",
+      "description": "Response to `session/set_config_option` method.",
       "properties": {
         "_meta": {
           "additionalProperties": true,
@@ -3288,6 +4369,7 @@
       "properties": {
         "_meta": {
           "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
           "type": ["object", "null"]
         }
       },
@@ -3367,6 +4449,90 @@
           "type": "string"
         }
       ]
+    },
+    "StringFormat": {
+      "description": "String format types for string properties in elicitation schemas.",
+      "oneOf": [
+        {
+          "const": "email",
+          "description": "Email address format.",
+          "type": "string"
+        },
+        {
+          "const": "uri",
+          "description": "URI format.",
+          "type": "string"
+        },
+        {
+          "const": "date",
+          "description": "Date format (YYYY-MM-DD).",
+          "type": "string"
+        },
+        {
+          "const": "date-time",
+          "description": "Date-time format (ISO 8601).",
+          "type": "string"
+        }
+      ]
+    },
+    "StringPropertySchema": {
+      "description": "Schema for string properties in an elicitation form.\n\nWhen `enum` or `oneOf` is set, this represents a single-select enum\nwith `\"type\": \"string\"`.",
+      "properties": {
+        "default": {
+          "description": "Default value.",
+          "type": ["string", "null"]
+        },
+        "description": {
+          "description": "Human-readable description.",
+          "type": ["string", "null"]
+        },
+        "enum": {
+          "description": "Enum values for untitled single-select enums.",
+          "items": {
+            "type": "string"
+          },
+          "type": ["array", "null"]
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StringFormat"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "String format."
+        },
+        "maxLength": {
+          "description": "Maximum string length.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "minLength": {
+          "description": "Minimum string length.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "oneOf": {
+          "description": "Titled enum options for titled single-select enums.",
+          "items": {
+            "$ref": "#/$defs/EnumOption"
+          },
+          "type": ["array", "null"]
+        },
+        "pattern": {
+          "description": "Pattern the string must match.",
+          "type": ["string", "null"]
+        },
+        "title": {
+          "description": "Optional title for the property.",
+          "type": ["string", "null"]
+        }
+      },
+      "type": "object"
     },
     "Terminal": {
       "description": "Embed a terminal created with `terminal/create` by its id.\n\nThe terminal must be added before calling `terminal/release`.\n\nSee protocol docs: [Terminal](https://agentclientprotocol.com/protocol/terminals)",
@@ -3507,6 +4673,20 @@
         }
       },
       "required": ["text", "uri"],
+      "type": "object"
+    },
+    "TitledMultiSelectItems": {
+      "description": "Items definition for titled multi-select enum properties.",
+      "properties": {
+        "anyOf": {
+          "description": "Titled enum options.",
+          "items": {
+            "$ref": "#/$defs/EnumOption"
+          },
+          "type": "array"
+        }
+      },
+      "required": ["anyOf"],
       "type": "object"
     },
     "ToolCall": {
@@ -3813,6 +4993,106 @@
       "required": ["hint"],
       "type": "object"
     },
+    "UntitledMultiSelectItems": {
+      "description": "Items definition for untitled multi-select enum properties.",
+      "properties": {
+        "enum": {
+          "description": "Allowed enum values.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/ElicitationStringType"
+            }
+          ],
+          "description": "Item type discriminator. Must be `\"string\"`."
+        }
+      },
+      "required": ["type", "enum"],
+      "type": "object"
+    },
+    "Usage": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nToken usage information for a prompt turn.",
+      "properties": {
+        "cachedReadTokens": {
+          "description": "Total cache read tokens.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "cachedWriteTokens": {
+          "description": "Total cache write tokens.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "inputTokens": {
+          "description": "Total input tokens across all turns.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "outputTokens": {
+          "description": "Total output tokens across all turns.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "thoughtTokens": {
+          "description": "Total thought/reasoning tokens",
+          "format": "uint64",
+          "minimum": 0,
+          "type": ["integer", "null"]
+        },
+        "totalTokens": {
+          "description": "Sum of all token types across session.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["totalTokens", "inputTokens", "outputTokens"],
+      "type": "object"
+    },
+    "UsageUpdate": {
+      "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or changed at any point.\n\nContext window and cost update for a session.",
+      "properties": {
+        "_meta": {
+          "additionalProperties": true,
+          "description": "The _meta property is reserved by ACP to allow clients and agents to attach additional\nmetadata to their interactions. Implementations MUST NOT make assumptions about values at\nthese keys.\n\nSee protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)",
+          "type": ["object", "null"]
+        },
+        "cost": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Cost"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Cumulative session cost (optional)."
+        },
+        "size": {
+          "description": "Total context window size in tokens.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "used": {
+          "description": "Tokens currently in context.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": ["used", "size"],
+      "type": "object"
+    },
     "WaitForTerminalExitRequest": {
       "description": "Request to wait for a terminal command to exit.",
       "properties": {
@@ -3992,7 +5272,7 @@
               "$ref": "#/$defs/CancelRequestNotification"
             }
           ],
-          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or\nchanged at any point.\n\nCancels an ongoing request.\n\nThis is a notification sent by the the side that sent a request to cancel that request.\n\nUpon receiving this notification, the receiver:\n\n1. MUST cancel the corresponding request activity and all nested activities\n2. MAY send any pending notifications.\n3. MUST send one of these responses for the original request:\n  - Valid response with appropriate data (partial results or cancellation marker)\n  - Error response with code `-32800` (Cancelled)\n\nSee protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/cancellation)",
+          "description": "**UNSTABLE**\n\nThis capability is not part of the spec yet, and may be removed or\nchanged at any point.\n\nCancels an ongoing request.\n\nThis is a notification sent by the side that sent a request to cancel that request.\n\nUpon receiving this notification, the receiver:\n\n1. MUST cancel the corresponding request activity and all nested activities\n2. MAY send any pending notifications.\n3. MUST send one of these responses for the original request:\n  - Valid response with appropriate data (partial results or cancellation marker)\n  - Error response with code `-32800` (Cancelled)\n\nSee protocol docs: [Cancellation](https://agentclientprotocol.com/protocol/cancellation)",
           "title": "CancelRequestNotification"
         }
       ],

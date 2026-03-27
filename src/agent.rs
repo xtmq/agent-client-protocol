@@ -5,6 +5,9 @@
 
 use std::{path::PathBuf, sync::Arc};
 
+#[cfg(feature = "unstable_auth_methods")]
+use std::collections::HashMap;
+
 use derive_more::{Display, From};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -190,6 +193,7 @@ pub struct Implementation {
 }
 
 impl Implementation {
+    #[must_use]
     pub fn new(name: impl Into<String>, version: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -252,6 +256,11 @@ impl AuthenticateRequest {
         }
     }
 
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
     #[must_use]
     pub fn meta(mut self, meta: impl IntoOption<Meta>) -> Self {
         self.meta = meta.into_option();
@@ -261,8 +270,8 @@ impl AuthenticateRequest {
 
 /// Response to the `authenticate` method.
 #[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
 #[schemars(extend("x-side" = "agent", "x-method" = AUTHENTICATE_METHOD_NAME))]
+#[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct AuthenticateResponse {
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
@@ -280,6 +289,182 @@ impl AuthenticateResponse {
         Self::default()
     }
 
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[must_use]
+    pub fn meta(mut self, meta: impl IntoOption<Meta>) -> Self {
+        self.meta = meta.into_option();
+        self
+    }
+}
+
+// Logout
+
+/// **UNSTABLE**
+///
+/// This capability is not part of the spec yet, and may be removed or changed at any point.
+///
+/// Request parameters for the logout method.
+///
+/// Terminates the current authenticated session.
+#[cfg(feature = "unstable_logout")]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[schemars(extend("x-side" = "agent", "x-method" = LOGOUT_METHOD_NAME))]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct LogoutRequest {
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    pub meta: Option<Meta>,
+}
+
+#[cfg(feature = "unstable_logout")]
+impl LogoutRequest {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[must_use]
+    pub fn meta(mut self, meta: impl IntoOption<Meta>) -> Self {
+        self.meta = meta.into_option();
+        self
+    }
+}
+
+/// **UNSTABLE**
+///
+/// This capability is not part of the spec yet, and may be removed or changed at any point.
+///
+/// Response to the `logout` method.
+#[cfg(feature = "unstable_logout")]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[schemars(extend("x-side" = "agent", "x-method" = LOGOUT_METHOD_NAME))]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct LogoutResponse {
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    pub meta: Option<Meta>,
+}
+
+#[cfg(feature = "unstable_logout")]
+impl LogoutResponse {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[must_use]
+    pub fn meta(mut self, meta: impl IntoOption<Meta>) -> Self {
+        self.meta = meta.into_option();
+        self
+    }
+}
+
+/// **UNSTABLE**
+///
+/// This capability is not part of the spec yet, and may be removed or changed at any point.
+///
+/// Authentication-related capabilities supported by the agent.
+#[cfg(feature = "unstable_logout")]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct AgentAuthCapabilities {
+    /// Whether the agent supports the logout method.
+    ///
+    /// By supplying `{}` it means that the agent supports the logout method.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub logout: Option<LogoutCapabilities>,
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    pub meta: Option<Meta>,
+}
+
+#[cfg(feature = "unstable_logout")]
+impl AgentAuthCapabilities {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Whether the agent supports the logout method.
+    #[must_use]
+    pub fn logout(mut self, logout: impl IntoOption<LogoutCapabilities>) -> Self {
+        self.logout = logout.into_option();
+        self
+    }
+
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[must_use]
+    pub fn meta(mut self, meta: impl IntoOption<Meta>) -> Self {
+        self.meta = meta.into_option();
+        self
+    }
+}
+
+/// **UNSTABLE**
+///
+/// This capability is not part of the spec yet, and may be removed or changed at any point.
+///
+/// Logout capabilities supported by the agent.
+///
+/// By supplying `{}` it means that the agent supports the logout method.
+#[cfg(feature = "unstable_logout")]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct LogoutCapabilities {
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    pub meta: Option<Meta>,
+}
+
+#[cfg(feature = "unstable_logout")]
+impl LogoutCapabilities {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
     #[must_use]
     pub fn meta(mut self, meta: impl IntoOption<Meta>) -> Self {
         self.meta = meta.into_option();
@@ -294,21 +479,108 @@ impl AuthenticateResponse {
 pub struct AuthMethodId(pub Arc<str>);
 
 impl AuthMethodId {
+    #[must_use]
     pub fn new(id: impl Into<Arc<str>>) -> Self {
         Self(id.into())
     }
 }
 
 /// Describes an available authentication method.
+///
+/// The `type` field acts as the discriminator in the serialized JSON form.
+/// When no `type` is present, the method is treated as `agent`.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum AuthMethod {
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// User provides a key that the client passes to the agent as an environment variable.
+    #[cfg(feature = "unstable_auth_methods")]
+    EnvVar(AuthMethodEnvVar),
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// Client runs an interactive terminal for the user to authenticate via a TUI.
+    #[cfg(feature = "unstable_auth_methods")]
+    Terminal(AuthMethodTerminal),
+    /// Agent handles authentication itself.
+    ///
+    /// This is the default when no `type` is specified.
+    #[serde(untagged)]
+    Agent(AuthMethodAgent),
+}
+
+impl AuthMethod {
+    /// The unique identifier for this authentication method.
+    #[must_use]
+    pub fn id(&self) -> &AuthMethodId {
+        match self {
+            Self::Agent(a) => &a.id,
+            #[cfg(feature = "unstable_auth_methods")]
+            Self::EnvVar(e) => &e.id,
+            #[cfg(feature = "unstable_auth_methods")]
+            Self::Terminal(t) => &t.id,
+        }
+    }
+
+    /// The human-readable name of this authentication method.
+    #[must_use]
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Agent(a) => &a.name,
+            #[cfg(feature = "unstable_auth_methods")]
+            Self::EnvVar(e) => &e.name,
+            #[cfg(feature = "unstable_auth_methods")]
+            Self::Terminal(t) => &t.name,
+        }
+    }
+
+    /// Optional description providing more details about this authentication method.
+    #[must_use]
+    pub fn description(&self) -> Option<&str> {
+        match self {
+            Self::Agent(a) => a.description.as_deref(),
+            #[cfg(feature = "unstable_auth_methods")]
+            Self::EnvVar(e) => e.description.as_deref(),
+            #[cfg(feature = "unstable_auth_methods")]
+            Self::Terminal(t) => t.description.as_deref(),
+        }
+    }
+
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[must_use]
+    pub fn meta(&self) -> Option<&Meta> {
+        match self {
+            Self::Agent(a) => a.meta.as_ref(),
+            #[cfg(feature = "unstable_auth_methods")]
+            Self::EnvVar(e) => e.meta.as_ref(),
+            #[cfg(feature = "unstable_auth_methods")]
+            Self::Terminal(t) => t.meta.as_ref(),
+        }
+    }
+}
+
+/// Agent handles authentication itself.
+///
+/// This is the default authentication method type.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
-pub struct AuthMethod {
+pub struct AuthMethodAgent {
     /// Unique identifier for this authentication method.
     pub id: AuthMethodId,
     /// Human-readable name of the authentication method.
     pub name: String,
     /// Optional description providing more details about this authentication method.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
     /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
@@ -319,7 +591,8 @@ pub struct AuthMethod {
     pub meta: Option<Meta>,
 }
 
-impl AuthMethod {
+impl AuthMethodAgent {
+    #[must_use]
     pub fn new(id: impl Into<AuthMethodId>, name: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -327,6 +600,266 @@ impl AuthMethod {
             description: None,
             meta: None,
         }
+    }
+
+    /// Optional description providing more details about this authentication method.
+    #[must_use]
+    pub fn description(mut self, description: impl IntoOption<String>) -> Self {
+        self.description = description.into_option();
+        self
+    }
+
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[must_use]
+    pub fn meta(mut self, meta: impl IntoOption<Meta>) -> Self {
+        self.meta = meta.into_option();
+        self
+    }
+}
+
+/// **UNSTABLE**
+///
+/// This capability is not part of the spec yet, and may be removed or changed at any point.
+///
+/// Environment variable authentication method.
+///
+/// The user provides credentials that the client passes to the agent as environment variables.
+#[cfg(feature = "unstable_auth_methods")]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct AuthMethodEnvVar {
+    /// Unique identifier for this authentication method.
+    pub id: AuthMethodId,
+    /// Human-readable name of the authentication method.
+    pub name: String,
+    /// Optional description providing more details about this authentication method.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// The environment variables the client should set.
+    pub vars: Vec<AuthEnvVar>,
+    /// Optional link to a page where the user can obtain their credentials.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub link: Option<String>,
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    pub meta: Option<Meta>,
+}
+
+#[cfg(feature = "unstable_auth_methods")]
+impl AuthMethodEnvVar {
+    #[must_use]
+    pub fn new(
+        id: impl Into<AuthMethodId>,
+        name: impl Into<String>,
+        vars: Vec<AuthEnvVar>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            description: None,
+            vars,
+            link: None,
+            meta: None,
+        }
+    }
+
+    /// Optional link to a page where the user can obtain their credentials.
+    #[must_use]
+    pub fn link(mut self, link: impl IntoOption<String>) -> Self {
+        self.link = link.into_option();
+        self
+    }
+
+    /// Optional description providing more details about this authentication method.
+    #[must_use]
+    pub fn description(mut self, description: impl IntoOption<String>) -> Self {
+        self.description = description.into_option();
+        self
+    }
+
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[must_use]
+    pub fn meta(mut self, meta: impl IntoOption<Meta>) -> Self {
+        self.meta = meta.into_option();
+        self
+    }
+}
+
+/// **UNSTABLE**
+///
+/// This capability is not part of the spec yet, and may be removed or changed at any point.
+///
+/// Describes a single environment variable for an [`AuthMethodEnvVar`] authentication method.
+#[cfg(feature = "unstable_auth_methods")]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct AuthEnvVar {
+    /// The environment variable name (e.g. `"OPENAI_API_KEY"`).
+    pub name: String,
+    /// Human-readable label for this variable, displayed in client UI.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    /// Whether this value is a secret (e.g. API key, token).
+    /// Clients should use a password-style input for secret vars.
+    ///
+    /// Defaults to `true`.
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
+    #[schemars(extend("default" = true))]
+    pub secret: bool,
+    /// Whether this variable is optional.
+    ///
+    /// Defaults to `false`.
+    #[serde(default, skip_serializing_if = "is_false")]
+    #[schemars(extend("default" = false))]
+    pub optional: bool,
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    pub meta: Option<Meta>,
+}
+
+#[cfg(feature = "unstable_auth_methods")]
+fn default_true() -> bool {
+    true
+}
+
+#[cfg(feature = "unstable_auth_methods")]
+#[expect(clippy::trivially_copy_pass_by_ref)]
+fn is_true(v: &bool) -> bool {
+    *v
+}
+
+#[cfg(feature = "unstable_auth_methods")]
+#[expect(clippy::trivially_copy_pass_by_ref)]
+fn is_false(v: &bool) -> bool {
+    !*v
+}
+
+#[cfg(feature = "unstable_auth_methods")]
+impl AuthEnvVar {
+    /// Creates a new auth env var.
+    #[must_use]
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            label: None,
+            secret: true,
+            optional: false,
+            meta: None,
+        }
+    }
+
+    /// Human-readable label for this variable, displayed in client UI.
+    #[must_use]
+    pub fn label(mut self, label: impl IntoOption<String>) -> Self {
+        self.label = label.into_option();
+        self
+    }
+
+    /// Whether this value is a secret (e.g. API key, token).
+    /// Clients should use a password-style input for secret vars.
+    #[must_use]
+    pub fn secret(mut self, secret: bool) -> Self {
+        self.secret = secret;
+        self
+    }
+
+    /// Whether this variable is optional.
+    #[must_use]
+    pub fn optional(mut self, optional: bool) -> Self {
+        self.optional = optional;
+        self
+    }
+
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[must_use]
+    pub fn meta(mut self, meta: impl IntoOption<Meta>) -> Self {
+        self.meta = meta.into_option();
+        self
+    }
+}
+
+/// **UNSTABLE**
+///
+/// This capability is not part of the spec yet, and may be removed or changed at any point.
+///
+/// Terminal-based authentication method.
+///
+/// The client runs an interactive terminal for the user to authenticate via a TUI.
+#[cfg(feature = "unstable_auth_methods")]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct AuthMethodTerminal {
+    /// Unique identifier for this authentication method.
+    pub id: AuthMethodId,
+    /// Human-readable name of the authentication method.
+    pub name: String,
+    /// Optional description providing more details about this authentication method.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Additional arguments to pass when running the agent binary for terminal auth.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub args: Vec<String>,
+    /// Additional environment variables to set when running the agent binary for terminal auth.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub env: HashMap<String, String>,
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    pub meta: Option<Meta>,
+}
+
+#[cfg(feature = "unstable_auth_methods")]
+impl AuthMethodTerminal {
+    #[must_use]
+    pub fn new(id: impl Into<AuthMethodId>, name: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            description: None,
+            args: Vec::new(),
+            env: HashMap::new(),
+            meta: None,
+        }
+    }
+
+    /// Additional arguments to pass when running the agent binary for terminal auth.
+    #[must_use]
+    pub fn args(mut self, args: Vec<String>) -> Self {
+        self.args = args;
+        self
+    }
+
+    /// Additional environment variables to set when running the agent binary for terminal auth.
+    #[must_use]
+    pub fn env(mut self, env: HashMap<String, String>) -> Self {
+        self.env = env;
+        self
     }
 
     /// Optional description providing more details about this authentication method.
@@ -372,6 +905,7 @@ pub struct NewSessionRequest {
 }
 
 impl NewSessionRequest {
+    #[must_use]
     pub fn new(cwd: impl Into<PathBuf>) -> Self {
         Self {
             cwd: cwd.into(),
@@ -424,12 +958,7 @@ pub struct NewSessionResponse {
     #[cfg(feature = "unstable_session_model")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub models: Option<SessionModelState>,
-    /// **UNSTABLE**
-    ///
-    /// This capability is not part of the spec yet, and may be removed or changed at any point.
-    ///
     /// Initial session configuration options if supported by the Agent.
-    #[cfg(feature = "unstable_session_config_options")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub config_options: Option<Vec<SessionConfigOption>>,
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
@@ -449,7 +978,6 @@ impl NewSessionResponse {
             modes: None,
             #[cfg(feature = "unstable_session_model")]
             models: None,
-            #[cfg(feature = "unstable_session_config_options")]
             config_options: None,
             meta: None,
         }
@@ -476,12 +1004,7 @@ impl NewSessionResponse {
         self
     }
 
-    /// **UNSTABLE**
-    ///
-    /// This capability is not part of the spec yet, and may be removed or changed at any point.
-    ///
     /// Initial session configuration options if supported by the Agent.
-    #[cfg(feature = "unstable_session_config_options")]
     #[must_use]
     pub fn config_options(
         mut self,
@@ -531,6 +1054,7 @@ pub struct LoadSessionRequest {
 }
 
 impl LoadSessionRequest {
+    #[must_use]
     pub fn new(session_id: impl Into<SessionId>, cwd: impl Into<PathBuf>) -> Self {
         Self {
             mcp_servers: vec![],
@@ -578,12 +1102,7 @@ pub struct LoadSessionResponse {
     #[cfg(feature = "unstable_session_model")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub models: Option<SessionModelState>,
-    /// **UNSTABLE**
-    ///
-    /// This capability is not part of the spec yet, and may be removed or changed at any point.
-    ///
     /// Initial session configuration options if supported by the Agent.
-    #[cfg(feature = "unstable_session_config_options")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub config_options: Option<Vec<SessionConfigOption>>,
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
@@ -622,12 +1141,7 @@ impl LoadSessionResponse {
         self
     }
 
-    /// **UNSTABLE**
-    ///
-    /// This capability is not part of the spec yet, and may be removed or changed at any point.
-    ///
     /// Initial session configuration options if supported by the Agent.
-    #[cfg(feature = "unstable_session_config_options")]
     #[must_use]
     pub fn config_options(
         mut self,
@@ -685,6 +1199,7 @@ pub struct ForkSessionRequest {
 
 #[cfg(feature = "unstable_session_fork")]
 impl ForkSessionRequest {
+    #[must_use]
     pub fn new(session_id: impl Into<SessionId>, cwd: impl Into<PathBuf>) -> Self {
         Self {
             session_id: session_id.into(),
@@ -739,12 +1254,7 @@ pub struct ForkSessionResponse {
     #[cfg(feature = "unstable_session_model")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub models: Option<SessionModelState>,
-    /// **UNSTABLE**
-    ///
-    /// This capability is not part of the spec yet, and may be removed or changed at any point.
-    ///
     /// Initial session configuration options if supported by the Agent.
-    #[cfg(feature = "unstable_session_config_options")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub config_options: Option<Vec<SessionConfigOption>>,
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
@@ -765,7 +1275,6 @@ impl ForkSessionResponse {
             modes: None,
             #[cfg(feature = "unstable_session_model")]
             models: None,
-            #[cfg(feature = "unstable_session_config_options")]
             config_options: None,
             meta: None,
         }
@@ -792,12 +1301,7 @@ impl ForkSessionResponse {
         self
     }
 
-    /// **UNSTABLE**
-    ///
-    /// This capability is not part of the spec yet, and may be removed or changed at any point.
-    ///
     /// Initial session configuration options if supported by the Agent.
-    #[cfg(feature = "unstable_session_config_options")]
     #[must_use]
     pub fn config_options(
         mut self,
@@ -855,6 +1359,7 @@ pub struct ResumeSessionRequest {
 
 #[cfg(feature = "unstable_session_resume")]
 impl ResumeSessionRequest {
+    #[must_use]
     pub fn new(session_id: impl Into<SessionId>, cwd: impl Into<PathBuf>) -> Self {
         Self {
             session_id: session_id.into(),
@@ -907,12 +1412,7 @@ pub struct ResumeSessionResponse {
     #[cfg(feature = "unstable_session_model")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub models: Option<SessionModelState>,
-    /// **UNSTABLE**
-    ///
-    /// This capability is not part of the spec yet, and may be removed or changed at any point.
-    ///
     /// Initial session configuration options if supported by the Agent.
-    #[cfg(feature = "unstable_session_config_options")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub config_options: Option<Vec<SessionConfigOption>>,
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
@@ -952,12 +1452,7 @@ impl ResumeSessionResponse {
         self
     }
 
-    /// **UNSTABLE**
-    ///
-    /// This capability is not part of the spec yet, and may be removed or changed at any point.
-    ///
     /// Initial session configuration options if supported by the Agent.
-    #[cfg(feature = "unstable_session_config_options")]
     #[must_use]
     pub fn config_options(
         mut self,
@@ -979,16 +1474,102 @@ impl ResumeSessionResponse {
     }
 }
 
-// List sessions
+// Close session
 
 /// **UNSTABLE**
 ///
 /// This capability is not part of the spec yet, and may be removed or changed at any point.
 ///
+/// Request parameters for closing an active session.
+///
+/// If supported, the agent **must** cancel any ongoing work related to the session
+/// (treat it as if `session/cancel` was called) and then free up any resources
+/// associated with the session.
+///
+/// Only available if the Agent supports the `session.close` capability.
+#[cfg(feature = "unstable_session_close")]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[schemars(extend("x-side" = "agent", "x-method" = SESSION_CLOSE_METHOD_NAME))]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct CloseSessionRequest {
+    /// The ID of the session to close.
+    pub session_id: SessionId,
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    pub meta: Option<Meta>,
+}
+
+#[cfg(feature = "unstable_session_close")]
+impl CloseSessionRequest {
+    #[must_use]
+    pub fn new(session_id: impl Into<SessionId>) -> Self {
+        Self {
+            session_id: session_id.into(),
+            meta: None,
+        }
+    }
+
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[must_use]
+    pub fn meta(mut self, meta: impl IntoOption<Meta>) -> Self {
+        self.meta = meta.into_option();
+        self
+    }
+}
+
+/// **UNSTABLE**
+///
+/// This capability is not part of the spec yet, and may be removed or changed at any point.
+///
+/// Response from closing a session.
+#[cfg(feature = "unstable_session_close")]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[schemars(extend("x-side" = "agent", "x-method" = SESSION_CLOSE_METHOD_NAME))]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct CloseSessionResponse {
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    pub meta: Option<Meta>,
+}
+
+#[cfg(feature = "unstable_session_close")]
+impl CloseSessionResponse {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[must_use]
+    pub fn meta(mut self, meta: impl IntoOption<Meta>) -> Self {
+        self.meta = meta.into_option();
+        self
+    }
+}
+
+// List sessions
+
 /// Request parameters for listing existing sessions.
 ///
-/// Only available if the Agent supports the `listSessions` capability.
-#[cfg(feature = "unstable_session_list")]
+/// Only available if the Agent supports the `sessionCapabilities.list` capability.
 #[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[schemars(extend("x-side" = "agent", "x-method" = SESSION_LIST_METHOD_NAME))]
 #[serde(rename_all = "camelCase")]
@@ -1009,7 +1590,6 @@ pub struct ListSessionsRequest {
     pub meta: Option<Meta>,
 }
 
-#[cfg(feature = "unstable_session_list")]
 impl ListSessionsRequest {
     #[must_use]
     pub fn new() -> Self {
@@ -1042,12 +1622,7 @@ impl ListSessionsRequest {
     }
 }
 
-/// **UNSTABLE**
-///
-/// This capability is not part of the spec yet, and may be removed or changed at any point.
-///
 /// Response from listing sessions.
-#[cfg(feature = "unstable_session_list")]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[schemars(extend("x-side" = "agent", "x-method" = SESSION_LIST_METHOD_NAME))]
 #[serde(rename_all = "camelCase")]
@@ -1068,7 +1643,6 @@ pub struct ListSessionsResponse {
     pub meta: Option<Meta>,
 }
 
-#[cfg(feature = "unstable_session_list")]
 impl ListSessionsResponse {
     #[must_use]
     pub fn new(sessions: Vec<SessionInfo>) -> Self {
@@ -1097,12 +1671,7 @@ impl ListSessionsResponse {
     }
 }
 
-/// **UNSTABLE**
-///
-/// This capability is not part of the spec yet, and may be removed or changed at any point.
-///
 /// Information about a session returned by session/list
-#[cfg(feature = "unstable_session_list")]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
@@ -1126,8 +1695,8 @@ pub struct SessionInfo {
     pub meta: Option<Meta>,
 }
 
-#[cfg(feature = "unstable_session_list")]
 impl SessionInfo {
+    #[must_use]
     pub fn new(session_id: impl Into<SessionId>, cwd: impl Into<PathBuf>) -> Self {
         Self {
             session_id: session_id.into(),
@@ -1230,6 +1799,7 @@ pub struct SessionMode {
 }
 
 impl SessionMode {
+    #[must_use]
     pub fn new(id: impl Into<SessionModeId>, name: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -1265,6 +1835,7 @@ impl SessionMode {
 pub struct SessionModeId(pub Arc<str>);
 
 impl SessionModeId {
+    #[must_use]
     pub fn new(id: impl Into<Arc<str>>) -> Self {
         Self(id.into())
     }
@@ -1312,6 +1883,11 @@ impl SetSessionModeRequest {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct SetSessionModeResponse {
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
     #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
     pub meta: Option<Meta>,
 }
@@ -1322,6 +1898,11 @@ impl SetSessionModeResponse {
         Self::default()
     }
 
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
     #[must_use]
     pub fn meta(mut self, meta: impl IntoOption<Meta>) -> Self {
         self.meta = meta.into_option();
@@ -1331,69 +1912,49 @@ impl SetSessionModeResponse {
 
 // Session config options
 
-/// **UNSTABLE**
-///
-/// This capability is not part of the spec yet, and may be removed or changed at any point.
-///
 /// Unique identifier for a session configuration option.
-#[cfg(feature = "unstable_session_config_options")]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash, From, Display)]
 #[serde(transparent)]
 #[from(Arc<str>, String, &'static str)]
 #[non_exhaustive]
 pub struct SessionConfigId(pub Arc<str>);
 
-#[cfg(feature = "unstable_session_config_options")]
 impl SessionConfigId {
+    #[must_use]
     pub fn new(id: impl Into<Arc<str>>) -> Self {
         Self(id.into())
     }
 }
 
-/// **UNSTABLE**
-///
-/// This capability is not part of the spec yet, and may be removed or changed at any point.
-///
 /// Unique identifier for a session configuration option value.
-#[cfg(feature = "unstable_session_config_options")]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash, From, Display)]
 #[serde(transparent)]
 #[from(Arc<str>, String, &'static str)]
 #[non_exhaustive]
 pub struct SessionConfigValueId(pub Arc<str>);
 
-#[cfg(feature = "unstable_session_config_options")]
 impl SessionConfigValueId {
+    #[must_use]
     pub fn new(id: impl Into<Arc<str>>) -> Self {
         Self(id.into())
     }
 }
 
-/// **UNSTABLE**
-///
-/// This capability is not part of the spec yet, and may be removed or changed at any point.
-///
 /// Unique identifier for a session configuration option value group.
-#[cfg(feature = "unstable_session_config_options")]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash, From, Display)]
 #[serde(transparent)]
 #[from(Arc<str>, String, &'static str)]
 #[non_exhaustive]
 pub struct SessionConfigGroupId(pub Arc<str>);
 
-#[cfg(feature = "unstable_session_config_options")]
 impl SessionConfigGroupId {
+    #[must_use]
     pub fn new(id: impl Into<Arc<str>>) -> Self {
         Self(id.into())
     }
 }
 
-/// **UNSTABLE**
-///
-/// This capability is not part of the spec yet, and may be removed or changed at any point.
-///
 /// A possible value for a session configuration option.
-#[cfg(feature = "unstable_session_config_options")]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
@@ -1414,7 +1975,6 @@ pub struct SessionConfigSelectOption {
     pub meta: Option<Meta>,
 }
 
-#[cfg(feature = "unstable_session_config_options")]
 impl SessionConfigSelectOption {
     #[must_use]
     pub fn new(value: impl Into<SessionConfigValueId>, name: impl Into<String>) -> Self {
@@ -1444,12 +2004,7 @@ impl SessionConfigSelectOption {
     }
 }
 
-/// **UNSTABLE**
-///
-/// This capability is not part of the spec yet, and may be removed or changed at any point.
-///
 /// A group of possible values for a session configuration option.
-#[cfg(feature = "unstable_session_config_options")]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
@@ -1469,7 +2024,6 @@ pub struct SessionConfigSelectGroup {
     pub meta: Option<Meta>,
 }
 
-#[cfg(feature = "unstable_session_config_options")]
 impl SessionConfigSelectGroup {
     #[must_use]
     pub fn new(
@@ -1497,12 +2051,7 @@ impl SessionConfigSelectGroup {
     }
 }
 
-/// **UNSTABLE**
-///
-/// This capability is not part of the spec yet, and may be removed or changed at any point.
-///
 /// Possible values for a session configuration option.
-#[cfg(feature = "unstable_session_config_options")]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(untagged)]
 #[non_exhaustive]
@@ -1513,26 +2062,19 @@ pub enum SessionConfigSelectOptions {
     Grouped(Vec<SessionConfigSelectGroup>),
 }
 
-#[cfg(feature = "unstable_session_config_options")]
 impl From<Vec<SessionConfigSelectOption>> for SessionConfigSelectOptions {
     fn from(options: Vec<SessionConfigSelectOption>) -> Self {
         SessionConfigSelectOptions::Ungrouped(options)
     }
 }
 
-#[cfg(feature = "unstable_session_config_options")]
 impl From<Vec<SessionConfigSelectGroup>> for SessionConfigSelectOptions {
     fn from(groups: Vec<SessionConfigSelectGroup>) -> Self {
         SessionConfigSelectOptions::Grouped(groups)
     }
 }
 
-/// **UNSTABLE**
-///
-/// This capability is not part of the spec yet, and may be removed or changed at any point.
-///
 /// A single-value selector (dropdown) session configuration option payload.
-#[cfg(feature = "unstable_session_config_options")]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
@@ -1543,7 +2085,6 @@ pub struct SessionConfigSelect {
     pub options: SessionConfigSelectOptions,
 }
 
-#[cfg(feature = "unstable_session_config_options")]
 impl SessionConfigSelect {
     #[must_use]
     pub fn new(
@@ -1561,6 +2102,24 @@ impl SessionConfigSelect {
 ///
 /// This capability is not part of the spec yet, and may be removed or changed at any point.
 ///
+/// A boolean on/off toggle session configuration option payload.
+#[cfg(feature = "unstable_boolean_config")]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct SessionConfigBoolean {
+    /// The current value of the boolean option.
+    pub current_value: bool,
+}
+
+#[cfg(feature = "unstable_boolean_config")]
+impl SessionConfigBoolean {
+    #[must_use]
+    pub fn new(current_value: bool) -> Self {
+        Self { current_value }
+    }
+}
+
 /// Semantic category for a session configuration option.
 ///
 /// This is intended to help Clients distinguish broadly common selectors (e.g. model selector vs
@@ -1570,7 +2129,6 @@ impl SessionConfigSelect {
 ///
 /// Category names beginning with `_` are free for custom use, like other ACP extension methods.
 /// Category names that do not begin with `_` are reserved for the ACP spec.
-#[cfg(feature = "unstable_session_config_options")]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
@@ -1586,12 +2144,7 @@ pub enum SessionConfigOptionCategory {
     Other(String),
 }
 
-/// **UNSTABLE**
-///
-/// This capability is not part of the spec yet, and may be removed or changed at any point.
-///
 /// Type-specific session configuration option payload.
-#[cfg(feature = "unstable_session_config_options")]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 #[schemars(extend("discriminator" = {"propertyName": "type"}))]
@@ -1599,14 +2152,16 @@ pub enum SessionConfigOptionCategory {
 pub enum SessionConfigKind {
     /// Single-value selector (dropdown).
     Select(SessionConfigSelect),
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// Boolean on/off toggle.
+    #[cfg(feature = "unstable_boolean_config")]
+    Boolean(SessionConfigBoolean),
 }
 
-/// **UNSTABLE**
-///
-/// This capability is not part of the spec yet, and may be removed or changed at any point.
-///
 /// A session configuration option selector and its current state.
-#[cfg(feature = "unstable_session_config_options")]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
@@ -1633,7 +2188,6 @@ pub struct SessionConfigOption {
     pub meta: Option<Meta>,
 }
 
-#[cfg(feature = "unstable_session_config_options")]
 impl SessionConfigOption {
     #[must_use]
     pub fn new(
@@ -1665,6 +2219,23 @@ impl SessionConfigOption {
         )
     }
 
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    #[cfg(feature = "unstable_boolean_config")]
+    #[must_use]
+    pub fn boolean(
+        id: impl Into<SessionConfigId>,
+        name: impl Into<String>,
+        current_value: bool,
+    ) -> Self {
+        Self::new(
+            id,
+            name,
+            SessionConfigKind::Boolean(SessionConfigBoolean::new(current_value)),
+        )
+    }
+
     #[must_use]
     pub fn description(mut self, description: impl IntoOption<String>) -> Self {
         self.description = description.into_option();
@@ -1693,8 +2264,96 @@ impl SessionConfigOption {
 ///
 /// This capability is not part of the spec yet, and may be removed or changed at any point.
 ///
+/// The value to set for a session configuration option.
+///
+/// The `type` field acts as the discriminator in the serialized JSON form.
+/// When no `type` is present, the value is treated as a [`SessionConfigValueId`]
+/// via the [`ValueId`](Self::ValueId) fallback variant.
+///
+/// The `type` discriminator describes the *shape* of the value, not the option
+/// kind. For example every option kind that picks from a list of ids
+/// (`select`, `radio`, …) would use [`ValueId`](Self::ValueId), while a
+/// future freeform text option would get its own variant.
+#[cfg(feature = "unstable_boolean_config")]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum SessionConfigOptionValue {
+    /// A boolean value (`type: "boolean"`).
+    Boolean {
+        /// The boolean value.
+        value: bool,
+    },
+    /// A [`SessionConfigValueId`] string value.
+    ///
+    /// This is the default when `type` is absent on the wire. Unknown `type`
+    /// values with string payloads also gracefully deserialize into this
+    /// variant.
+    #[serde(untagged)]
+    ValueId {
+        /// The value ID.
+        value: SessionConfigValueId,
+    },
+}
+
+#[cfg(feature = "unstable_boolean_config")]
+impl SessionConfigOptionValue {
+    /// Create a value-id option value (used by `select` and other id-based option types).
+    #[must_use]
+    pub fn value_id(id: impl Into<SessionConfigValueId>) -> Self {
+        Self::ValueId { value: id.into() }
+    }
+
+    /// Create a boolean option value.
+    #[must_use]
+    pub fn boolean(val: bool) -> Self {
+        Self::Boolean { value: val }
+    }
+
+    /// Return the inner [`SessionConfigValueId`] if this is a
+    /// [`ValueId`](Self::ValueId) value.
+    #[must_use]
+    pub fn as_value_id(&self) -> Option<&SessionConfigValueId> {
+        match self {
+            Self::ValueId { value } => Some(value),
+            _ => None,
+        }
+    }
+
+    /// Return the inner [`bool`] if this is a [`Boolean`](Self::Boolean) value.
+    #[must_use]
+    pub fn as_bool(&self) -> Option<bool> {
+        match self {
+            Self::Boolean { value } => Some(*value),
+            _ => None,
+        }
+    }
+}
+
+#[cfg(feature = "unstable_boolean_config")]
+impl From<SessionConfigValueId> for SessionConfigOptionValue {
+    fn from(value: SessionConfigValueId) -> Self {
+        Self::ValueId { value }
+    }
+}
+
+#[cfg(feature = "unstable_boolean_config")]
+impl From<bool> for SessionConfigOptionValue {
+    fn from(value: bool) -> Self {
+        Self::Boolean { value }
+    }
+}
+
+#[cfg(feature = "unstable_boolean_config")]
+impl From<&str> for SessionConfigOptionValue {
+    fn from(value: &str) -> Self {
+        Self::ValueId {
+            value: SessionConfigValueId::new(value),
+        }
+    }
+}
+
 /// Request parameters for setting a session configuration option.
-#[cfg(feature = "unstable_session_config_options")]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[schemars(extend("x-side" = "agent", "x-method" = SESSION_SET_CONFIG_OPTION_METHOD_NAME))]
 #[serde(rename_all = "camelCase")]
@@ -1704,7 +2363,15 @@ pub struct SetSessionConfigOptionRequest {
     pub session_id: SessionId,
     /// The ID of the configuration option to set.
     pub config_id: SessionConfigId,
+    /// The value to set, including a `type` discriminator and the raw `value`.
+    ///
+    /// When `type` is absent on the wire, defaults to treating the value as a
+    /// [`SessionConfigValueId`] for `select` options.
+    #[cfg(feature = "unstable_boolean_config")]
+    #[serde(flatten)]
+    pub value: SessionConfigOptionValue,
     /// The ID of the configuration option value to set.
+    #[cfg(not(feature = "unstable_boolean_config"))]
     pub value: SessionConfigValueId,
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
     /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
@@ -1715,8 +2382,23 @@ pub struct SetSessionConfigOptionRequest {
     pub meta: Option<Meta>,
 }
 
-#[cfg(feature = "unstable_session_config_options")]
 impl SetSessionConfigOptionRequest {
+    #[cfg(feature = "unstable_boolean_config")]
+    #[must_use]
+    pub fn new(
+        session_id: impl Into<SessionId>,
+        config_id: impl Into<SessionConfigId>,
+        value: impl Into<SessionConfigOptionValue>,
+    ) -> Self {
+        Self {
+            session_id: session_id.into(),
+            config_id: config_id.into(),
+            value: value.into(),
+            meta: None,
+        }
+    }
+
+    #[cfg(not(feature = "unstable_boolean_config"))]
     #[must_use]
     pub fn new(
         session_id: impl Into<SessionId>,
@@ -1743,12 +2425,7 @@ impl SetSessionConfigOptionRequest {
     }
 }
 
-/// **UNSTABLE**
-///
-/// This capability is not part of the spec yet, and may be removed or changed at any point.
-///
 /// Response to `session/set_config_option` method.
-#[cfg(feature = "unstable_session_config_options")]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[schemars(extend("x-side" = "agent", "x-method" = SESSION_SET_CONFIG_OPTION_METHOD_NAME))]
 #[serde(rename_all = "camelCase")]
@@ -1765,7 +2442,6 @@ pub struct SetSessionConfigOptionResponse {
     pub meta: Option<Meta>,
 }
 
-#[cfg(feature = "unstable_session_config_options")]
 impl SetSessionConfigOptionResponse {
     #[must_use]
     pub fn new(config_options: Vec<SessionConfigOption>) -> Self {
@@ -1835,6 +2511,7 @@ pub struct McpServerHttp {
 }
 
 impl McpServerHttp {
+    #[must_use]
     pub fn new(name: impl Into<String>, url: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -1884,6 +2561,7 @@ pub struct McpServerSse {
 }
 
 impl McpServerSse {
+    #[must_use]
     pub fn new(name: impl Into<String>, url: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -1935,6 +2613,7 @@ pub struct McpServerStdio {
 }
 
 impl McpServerStdio {
+    #[must_use]
     pub fn new(name: impl Into<String>, command: impl Into<PathBuf>) -> Self {
         Self {
             name: name.into(),
@@ -1990,6 +2669,7 @@ pub struct EnvVariable {
 }
 
 impl EnvVariable {
+    #[must_use]
     pub fn new(name: impl Into<String>, value: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -2029,6 +2709,7 @@ pub struct HttpHeader {
 }
 
 impl HttpHeader {
+    #[must_use]
     pub fn new(name: impl Into<String>, value: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -2063,6 +2744,18 @@ impl HttpHeader {
 pub struct PromptRequest {
     /// The ID of the session to send this user message to
     pub session_id: SessionId,
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// A client-generated unique identifier for this user message.
+    ///
+    /// If provided, the Agent SHOULD echo this value as `userMessageId` in the
+    /// [`PromptResponse`] to confirm it was recorded.
+    /// Both clients and agents MUST use UUID format for message IDs.
+    #[cfg(feature = "unstable_message_id")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message_id: Option<String>,
     /// The blocks of content that compose the user's message.
     ///
     /// As a baseline, the Agent MUST support [`ContentBlock::Text`] and [`ContentBlock::ResourceLink`],
@@ -2091,9 +2784,27 @@ impl PromptRequest {
     pub fn new(session_id: impl Into<SessionId>, prompt: Vec<ContentBlock>) -> Self {
         Self {
             session_id: session_id.into(),
+            #[cfg(feature = "unstable_message_id")]
+            message_id: None,
             prompt,
             meta: None,
         }
+    }
+
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// A client-generated unique identifier for this user message.
+    ///
+    /// If provided, the Agent SHOULD echo this value as `userMessageId` in the
+    /// [`PromptResponse`] to confirm it was recorded.
+    /// Both clients and agents MUST use UUID format for message IDs.
+    #[cfg(feature = "unstable_message_id")]
+    #[must_use]
+    pub fn message_id(mut self, message_id: impl IntoOption<String>) -> Self {
+        self.message_id = message_id.into_option();
+        self
     }
 
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
@@ -2116,8 +2827,28 @@ impl PromptRequest {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct PromptResponse {
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// The acknowledged user message ID.
+    ///
+    /// If the client provided a `messageId` in the [`PromptRequest`], the agent echoes it here
+    /// to confirm it was recorded. If the client did not provide one, the agent MAY assign one
+    /// and return it here. Absence of this field indicates the agent did not record a message ID.
+    #[cfg(feature = "unstable_message_id")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_message_id: Option<String>,
     /// Indicates why the agent stopped processing the turn.
     pub stop_reason: StopReason,
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// Token usage for this turn (optional).
+    #[cfg(feature = "unstable_session_usage")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage: Option<Usage>,
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
     /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
     /// these keys.
@@ -2131,9 +2862,41 @@ impl PromptResponse {
     #[must_use]
     pub fn new(stop_reason: StopReason) -> Self {
         Self {
+            #[cfg(feature = "unstable_message_id")]
+            user_message_id: None,
             stop_reason,
+            #[cfg(feature = "unstable_session_usage")]
+            usage: None,
             meta: None,
         }
+    }
+
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// The acknowledged user message ID.
+    ///
+    /// If the client provided a `messageId` in the [`PromptRequest`], the agent echoes it here
+    /// to confirm it was recorded. If the client did not provide one, the agent MAY assign one
+    /// and return it here. Absence of this field indicates the agent did not record a message ID.
+    #[cfg(feature = "unstable_message_id")]
+    #[must_use]
+    pub fn user_message_id(mut self, user_message_id: impl IntoOption<String>) -> Self {
+        self.user_message_id = user_message_id.into_option();
+        self
+    }
+
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// Token usage for this turn.
+    #[cfg(feature = "unstable_session_usage")]
+    #[must_use]
+    pub fn usage(mut self, usage: impl IntoOption<Usage>) -> Self {
+        self.usage = usage.into_option();
+        self
     }
 
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
@@ -2173,6 +2936,69 @@ pub enum StopReason {
     /// Agents should catch these exceptions and return this semantically meaningful
     /// response to confirm successful cancellation.
     Cancelled,
+}
+
+/// **UNSTABLE**
+///
+/// This capability is not part of the spec yet, and may be removed or changed at any point.
+///
+/// Token usage information for a prompt turn.
+#[cfg(feature = "unstable_session_usage")]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+#[non_exhaustive]
+pub struct Usage {
+    /// Sum of all token types across session.
+    pub total_tokens: u64,
+    /// Total input tokens across all turns.
+    pub input_tokens: u64,
+    /// Total output tokens across all turns.
+    pub output_tokens: u64,
+    /// Total thought/reasoning tokens
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thought_tokens: Option<u64>,
+    /// Total cache read tokens.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cached_read_tokens: Option<u64>,
+    /// Total cache write tokens.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cached_write_tokens: Option<u64>,
+}
+
+#[cfg(feature = "unstable_session_usage")]
+impl Usage {
+    #[must_use]
+    pub fn new(total_tokens: u64, input_tokens: u64, output_tokens: u64) -> Self {
+        Self {
+            total_tokens,
+            input_tokens,
+            output_tokens,
+            thought_tokens: None,
+            cached_read_tokens: None,
+            cached_write_tokens: None,
+        }
+    }
+
+    /// Total thought/reasoning tokens
+    #[must_use]
+    pub fn thought_tokens(mut self, thought_tokens: impl IntoOption<u64>) -> Self {
+        self.thought_tokens = thought_tokens.into_option();
+        self
+    }
+
+    /// Total cache read tokens.
+    #[must_use]
+    pub fn cached_read_tokens(mut self, cached_read_tokens: impl IntoOption<u64>) -> Self {
+        self.cached_read_tokens = cached_read_tokens.into_option();
+        self
+    }
+
+    /// Total cache write tokens.
+    #[must_use]
+    pub fn cached_write_tokens(mut self, cached_write_tokens: impl IntoOption<u64>) -> Self {
+        self.cached_write_tokens = cached_write_tokens.into_option();
+        self
+    }
 }
 
 // Model
@@ -2237,6 +3063,7 @@ pub struct ModelId(pub Arc<str>);
 
 #[cfg(feature = "unstable_session_model")]
 impl ModelId {
+    #[must_use]
     pub fn new(id: impl Into<Arc<str>>) -> Self {
         Self(id.into())
     }
@@ -2270,6 +3097,7 @@ pub struct ModelInfo {
 
 #[cfg(feature = "unstable_session_model")]
 impl ModelInfo {
+    #[must_use]
     pub fn new(model_id: impl Into<ModelId>, name: impl Into<String>) -> Self {
         Self {
             model_id: model_id.into(),
@@ -2407,6 +3235,14 @@ pub struct AgentCapabilities {
     pub mcp_capabilities: McpCapabilities,
     #[serde(default)]
     pub session_capabilities: SessionCapabilities,
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// Authentication-related capabilities supported by the agent.
+    #[cfg(feature = "unstable_logout")]
+    #[serde(default)]
+    pub auth: AgentAuthCapabilities,
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
     /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
     /// these keys.
@@ -2450,6 +3286,18 @@ impl AgentCapabilities {
         self
     }
 
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// Authentication-related capabilities supported by the agent.
+    #[cfg(feature = "unstable_logout")]
+    #[must_use]
+    pub fn auth(mut self, auth: AgentAuthCapabilities) -> Self {
+        self.auth = auth;
+        self
+    }
+
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
     /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
     /// these keys.
@@ -2474,12 +3322,7 @@ impl AgentCapabilities {
 #[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct SessionCapabilities {
-    /// **UNSTABLE**
-    ///
-    /// This capability is not part of the spec yet, and may be removed or changed at any point.
-    ///
     /// Whether the agent supports `session/list`.
-    #[cfg(feature = "unstable_session_list")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub list: Option<SessionListCapabilities>,
     /// **UNSTABLE**
@@ -2498,6 +3341,14 @@ pub struct SessionCapabilities {
     #[cfg(feature = "unstable_session_resume")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resume: Option<SessionResumeCapabilities>,
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// Whether the agent supports `session/close`.
+    #[cfg(feature = "unstable_session_close")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub close: Option<SessionCloseCapabilities>,
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
     /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
     /// these keys.
@@ -2513,7 +3364,6 @@ impl SessionCapabilities {
         Self::default()
     }
 
-    #[cfg(feature = "unstable_session_list")]
     /// Whether the agent supports `session/list`.
     #[must_use]
     pub fn list(mut self, list: impl IntoOption<SessionListCapabilities>) -> Self {
@@ -2537,6 +3387,14 @@ impl SessionCapabilities {
         self
     }
 
+    #[cfg(feature = "unstable_session_close")]
+    /// Whether the agent supports `session/close`.
+    #[must_use]
+    pub fn close(mut self, close: impl IntoOption<SessionCloseCapabilities>) -> Self {
+        self.close = close.into_option();
+        self
+    }
+
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
     /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
     /// these keys.
@@ -2552,9 +3410,6 @@ impl SessionCapabilities {
 /// Capabilities for the `session/list` method.
 ///
 /// By supplying `{}` it means that the agent supports listing of sessions.
-///
-/// Further capabilities can be added in the future for other means of filtering or searching the list.
-#[cfg(feature = "unstable_session_list")]
 #[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct SessionListCapabilities {
@@ -2567,7 +3422,6 @@ pub struct SessionListCapabilities {
     pub meta: Option<Meta>,
 }
 
-#[cfg(feature = "unstable_session_list")]
 impl SessionListCapabilities {
     #[must_use]
     pub fn new() -> Self {
@@ -2646,6 +3500,45 @@ pub struct SessionResumeCapabilities {
 
 #[cfg(feature = "unstable_session_resume")]
 impl SessionResumeCapabilities {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[must_use]
+    pub fn meta(mut self, meta: impl IntoOption<Meta>) -> Self {
+        self.meta = meta.into_option();
+        self
+    }
+}
+
+/// **UNSTABLE**
+///
+/// This capability is not part of the spec yet, and may be removed or changed at any point.
+///
+/// Capabilities for the `session/close` method.
+///
+/// By supplying `{}` it means that the agent supports closing of sessions.
+#[cfg(feature = "unstable_session_close")]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct SessionCloseCapabilities {
+    /// The _meta property is reserved by ACP to allow clients and agents to attach additional
+    /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
+    /// these keys.
+    ///
+    /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
+    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    pub meta: Option<Meta>,
+}
+
+#[cfg(feature = "unstable_session_close")]
+impl SessionCloseCapabilities {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
@@ -2813,7 +3706,6 @@ pub struct AgentMethodNames {
     /// Method for setting the mode for a session.
     pub session_set_mode: &'static str,
     /// Method for setting a configuration option for a session.
-    #[cfg(feature = "unstable_session_config_options")]
     pub session_set_config_option: &'static str,
     /// Method for sending a prompt to the agent.
     pub session_prompt: &'static str,
@@ -2823,7 +3715,6 @@ pub struct AgentMethodNames {
     #[cfg(feature = "unstable_session_model")]
     pub session_set_model: &'static str,
     /// Method for listing existing sessions.
-    #[cfg(feature = "unstable_session_list")]
     pub session_list: &'static str,
     /// Method for forking an existing session.
     #[cfg(feature = "unstable_session_fork")]
@@ -2831,6 +3722,12 @@ pub struct AgentMethodNames {
     /// Method for resuming an existing session.
     #[cfg(feature = "unstable_session_resume")]
     pub session_resume: &'static str,
+    /// Method for closing an active session.
+    #[cfg(feature = "unstable_session_close")]
+    pub session_close: &'static str,
+    /// Method for logging out of an authenticated session.
+    #[cfg(feature = "unstable_logout")]
+    pub logout: &'static str,
 }
 
 /// Constant containing all agent method names.
@@ -2840,18 +3737,20 @@ pub const AGENT_METHOD_NAMES: AgentMethodNames = AgentMethodNames {
     session_new: SESSION_NEW_METHOD_NAME,
     session_load: SESSION_LOAD_METHOD_NAME,
     session_set_mode: SESSION_SET_MODE_METHOD_NAME,
-    #[cfg(feature = "unstable_session_config_options")]
     session_set_config_option: SESSION_SET_CONFIG_OPTION_METHOD_NAME,
     session_prompt: SESSION_PROMPT_METHOD_NAME,
     session_cancel: SESSION_CANCEL_METHOD_NAME,
     #[cfg(feature = "unstable_session_model")]
     session_set_model: SESSION_SET_MODEL_METHOD_NAME,
-    #[cfg(feature = "unstable_session_list")]
     session_list: SESSION_LIST_METHOD_NAME,
     #[cfg(feature = "unstable_session_fork")]
     session_fork: SESSION_FORK_METHOD_NAME,
     #[cfg(feature = "unstable_session_resume")]
     session_resume: SESSION_RESUME_METHOD_NAME,
+    #[cfg(feature = "unstable_session_close")]
+    session_close: SESSION_CLOSE_METHOD_NAME,
+    #[cfg(feature = "unstable_logout")]
+    logout: LOGOUT_METHOD_NAME,
 };
 
 /// Method name for the initialize request.
@@ -2865,7 +3764,6 @@ pub(crate) const SESSION_LOAD_METHOD_NAME: &str = "session/load";
 /// Method name for setting the mode for a session.
 pub(crate) const SESSION_SET_MODE_METHOD_NAME: &str = "session/set_mode";
 /// Method name for setting a configuration option for a session.
-#[cfg(feature = "unstable_session_config_options")]
 pub(crate) const SESSION_SET_CONFIG_OPTION_METHOD_NAME: &str = "session/set_config_option";
 /// Method name for sending a prompt.
 pub(crate) const SESSION_PROMPT_METHOD_NAME: &str = "session/prompt";
@@ -2875,7 +3773,6 @@ pub(crate) const SESSION_CANCEL_METHOD_NAME: &str = "session/cancel";
 #[cfg(feature = "unstable_session_model")]
 pub(crate) const SESSION_SET_MODEL_METHOD_NAME: &str = "session/set_model";
 /// Method name for listing existing sessions.
-#[cfg(feature = "unstable_session_list")]
 pub(crate) const SESSION_LIST_METHOD_NAME: &str = "session/list";
 /// Method name for forking an existing session.
 #[cfg(feature = "unstable_session_fork")]
@@ -2883,6 +3780,12 @@ pub(crate) const SESSION_FORK_METHOD_NAME: &str = "session/fork";
 /// Method name for resuming an existing session.
 #[cfg(feature = "unstable_session_resume")]
 pub(crate) const SESSION_RESUME_METHOD_NAME: &str = "session/resume";
+/// Method name for closing an active session.
+#[cfg(feature = "unstable_session_close")]
+pub(crate) const SESSION_CLOSE_METHOD_NAME: &str = "session/close";
+/// Method name for logging out of an authenticated session.
+#[cfg(feature = "unstable_logout")]
+pub(crate) const LOGOUT_METHOD_NAME: &str = "logout";
 
 /// All possible requests that a client can send to an agent.
 ///
@@ -2894,6 +3797,7 @@ pub(crate) const SESSION_RESUME_METHOD_NAME: &str = "session/resume";
 #[serde(untagged)]
 #[schemars(inline)]
 #[non_exhaustive]
+#[allow(clippy::large_enum_variant)]
 pub enum ClientRequest {
     /// Establishes the connection with a client and negotiates protocol capabilities.
     ///
@@ -2916,6 +3820,16 @@ pub enum ClientRequest {
     ///
     /// See protocol docs: [Initialization](https://agentclientprotocol.com/protocol/initialization)
     AuthenticateRequest(AuthenticateRequest),
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// Logs out of the current authenticated state.
+    ///
+    /// After a successful logout, all new sessions will require authentication.
+    /// There is no guarantee about the behavior of already running sessions.
+    #[cfg(feature = "unstable_logout")]
+    LogoutRequest(LogoutRequest),
     /// Creates a new conversation session with the agent.
     ///
     /// Sessions represent independent conversation contexts with their own history and state.
@@ -2940,14 +3854,9 @@ pub enum ClientRequest {
     ///
     /// See protocol docs: [Loading Sessions](https://agentclientprotocol.com/protocol/session-setup#loading-sessions)
     LoadSessionRequest(LoadSessionRequest),
-    #[cfg(feature = "unstable_session_list")]
-    /// **UNSTABLE**
-    ///
-    /// This capability is not part of the spec yet, and may be removed or changed at any point.
-    ///
     /// Lists existing sessions known to the agent.
     ///
-    /// This method is only available if the agent advertises the `listSessions` capability.
+    /// This method is only available if the agent advertises the `sessionCapabilities.list` capability.
     ///
     /// The agent should return metadata about sessions with optional filtering and pagination support.
     ListSessionsRequest(ListSessionsRequest),
@@ -2976,6 +3885,18 @@ pub enum ClientRequest {
     /// The agent should resume the session context, allowing the conversation to continue
     /// without replaying the message history (unlike `session/load`).
     ResumeSessionRequest(ResumeSessionRequest),
+    #[cfg(feature = "unstable_session_close")]
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// Closes an active session and frees up any resources associated with it.
+    ///
+    /// This method is only available if the agent advertises the `session.close` capability.
+    ///
+    /// The agent must cancel any ongoing work (as if `session/cancel` was called)
+    /// and then free up any resources associated with the session.
+    CloseSessionRequest(CloseSessionRequest),
     /// Sets the current mode for a session.
     ///
     /// Allows switching between different agent modes (e.g., "ask", "architect", "code")
@@ -2990,11 +3911,6 @@ pub enum ClientRequest {
     ///
     /// See protocol docs: [Session Modes](https://agentclientprotocol.com/protocol/session-modes)
     SetSessionModeRequest(SetSessionModeRequest),
-    #[cfg(feature = "unstable_session_config_options")]
-    /// **UNSTABLE**
-    ///
-    /// This capability is not part of the spec yet, and may be removed or changed at any point.
-    ///
     /// Sets the current value for a session configuration option.
     SetSessionConfigOptionRequest(SetSessionConfigOptionRequest),
     /// Processes a user prompt within a session.
@@ -3032,16 +3948,18 @@ impl ClientRequest {
         match self {
             Self::InitializeRequest(_) => AGENT_METHOD_NAMES.initialize,
             Self::AuthenticateRequest(_) => AGENT_METHOD_NAMES.authenticate,
+            #[cfg(feature = "unstable_logout")]
+            Self::LogoutRequest(_) => AGENT_METHOD_NAMES.logout,
             Self::NewSessionRequest(_) => AGENT_METHOD_NAMES.session_new,
             Self::LoadSessionRequest(_) => AGENT_METHOD_NAMES.session_load,
-            #[cfg(feature = "unstable_session_list")]
             Self::ListSessionsRequest(_) => AGENT_METHOD_NAMES.session_list,
             #[cfg(feature = "unstable_session_fork")]
             Self::ForkSessionRequest(_) => AGENT_METHOD_NAMES.session_fork,
             #[cfg(feature = "unstable_session_resume")]
             Self::ResumeSessionRequest(_) => AGENT_METHOD_NAMES.session_resume,
+            #[cfg(feature = "unstable_session_close")]
+            Self::CloseSessionRequest(_) => AGENT_METHOD_NAMES.session_close,
             Self::SetSessionModeRequest(_) => AGENT_METHOD_NAMES.session_set_mode,
-            #[cfg(feature = "unstable_session_config_options")]
             Self::SetSessionConfigOptionRequest(_) => AGENT_METHOD_NAMES.session_set_config_option,
             Self::PromptRequest(_) => AGENT_METHOD_NAMES.session_prompt,
             #[cfg(feature = "unstable_session_model")]
@@ -3061,23 +3979,26 @@ impl ClientRequest {
 #[serde(untagged)]
 #[schemars(inline)]
 #[non_exhaustive]
+#[allow(clippy::large_enum_variant)]
 pub enum AgentResponse {
     InitializeResponse(InitializeResponse),
     AuthenticateResponse(#[serde(default)] AuthenticateResponse),
+    #[cfg(feature = "unstable_logout")]
+    LogoutResponse(#[serde(default)] LogoutResponse),
     NewSessionResponse(NewSessionResponse),
     LoadSessionResponse(#[serde(default)] LoadSessionResponse),
-    #[cfg(feature = "unstable_session_list")]
     ListSessionsResponse(ListSessionsResponse),
     #[cfg(feature = "unstable_session_fork")]
     ForkSessionResponse(ForkSessionResponse),
     #[cfg(feature = "unstable_session_resume")]
     ResumeSessionResponse(#[serde(default)] ResumeSessionResponse),
+    #[cfg(feature = "unstable_session_close")]
+    CloseSessionResponse(#[serde(default)] CloseSessionResponse),
     SetSessionModeResponse(#[serde(default)] SetSessionModeResponse),
-    #[cfg(feature = "unstable_session_config_options")]
     SetSessionConfigOptionResponse(SetSessionConfigOptionResponse),
     PromptResponse(PromptResponse),
     #[cfg(feature = "unstable_session_model")]
-    SetSessionModelResponse(SetSessionModelResponse),
+    SetSessionModelResponse(#[serde(default)] SetSessionModelResponse),
     ExtMethodResponse(ExtResponse),
 }
 
@@ -3304,7 +4225,6 @@ mod test_serialization {
     }
 
     #[test]
-    #[cfg(feature = "unstable_session_config_options")]
     fn test_session_config_option_category_known_variants() {
         // Test serialization of known variants
         assert_eq!(
@@ -3336,7 +4256,6 @@ mod test_serialization {
     }
 
     #[test]
-    #[cfg(feature = "unstable_session_config_options")]
     fn test_session_config_option_category_unknown_variants() {
         // Test that unknown strings are captured in Other variant
         let unknown: SessionConfigOptionCategory =
@@ -3352,7 +4271,6 @@ mod test_serialization {
     }
 
     #[test]
-    #[cfg(feature = "unstable_session_config_options")]
     fn test_session_config_option_category_custom_categories() {
         // Category names beginning with `_` are free for custom use
         let custom: SessionConfigOptionCategory =
@@ -3370,7 +4288,491 @@ mod test_serialization {
         let deserialized: SessionConfigOptionCategory = serde_json::from_value(json).unwrap();
         assert_eq!(
             deserialized,
-            SessionConfigOptionCategory::Other("_my_custom_category".to_string())
+            SessionConfigOptionCategory::Other("_my_custom_category".to_string()),
         );
+    }
+
+    #[test]
+    fn test_auth_method_agent_serialization() {
+        let method = AuthMethod::Agent(AuthMethodAgent::new("default-auth", "Default Auth"));
+
+        let json = serde_json::to_value(&method).unwrap();
+        assert_eq!(
+            json,
+            json!({
+                "id": "default-auth",
+                "name": "Default Auth"
+            })
+        );
+        // description should be omitted when None
+        assert!(!json.as_object().unwrap().contains_key("description"));
+        // Agent variant should not emit a `type` field (backward compat)
+        assert!(!json.as_object().unwrap().contains_key("type"));
+
+        let deserialized: AuthMethod = serde_json::from_value(json).unwrap();
+        match deserialized {
+            AuthMethod::Agent(AuthMethodAgent { id, name, .. }) => {
+                assert_eq!(id.0.as_ref(), "default-auth");
+                assert_eq!(name, "Default Auth");
+            }
+            #[cfg(feature = "unstable_auth_methods")]
+            _ => panic!("Expected Agent variant"),
+        }
+    }
+
+    #[test]
+    fn test_auth_method_explicit_agent_deserialization() {
+        // An explicit `"type": "agent"` should also deserialize to Agent
+        let json = json!({
+            "id": "agent-auth",
+            "name": "Agent Auth",
+            "type": "agent"
+        });
+
+        let deserialized: AuthMethod = serde_json::from_value(json).unwrap();
+        assert!(matches!(deserialized, AuthMethod::Agent(_)));
+    }
+
+    #[cfg(feature = "unstable_auth_methods")]
+    #[test]
+    fn test_auth_method_env_var_serialization() {
+        let method = AuthMethod::EnvVar(AuthMethodEnvVar::new(
+            "api-key",
+            "API Key",
+            vec![AuthEnvVar::new("API_KEY")],
+        ));
+
+        let json = serde_json::to_value(&method).unwrap();
+        assert_eq!(
+            json,
+            json!({
+                "id": "api-key",
+                "name": "API Key",
+                "type": "env_var",
+                "vars": [{"name": "API_KEY"}]
+            })
+        );
+        // secret defaults to true and should be omitted; optional defaults to false and should be omitted
+        assert!(!json["vars"][0].as_object().unwrap().contains_key("secret"));
+        assert!(
+            !json["vars"][0]
+                .as_object()
+                .unwrap()
+                .contains_key("optional")
+        );
+
+        let deserialized: AuthMethod = serde_json::from_value(json).unwrap();
+        match deserialized {
+            AuthMethod::EnvVar(AuthMethodEnvVar {
+                id,
+                name: method_name,
+                vars,
+                link,
+                ..
+            }) => {
+                assert_eq!(id.0.as_ref(), "api-key");
+                assert_eq!(method_name, "API Key");
+                assert_eq!(vars.len(), 1);
+                assert_eq!(vars[0].name, "API_KEY");
+                assert!(vars[0].secret);
+                assert!(!vars[0].optional);
+                assert!(link.is_none());
+            }
+            _ => panic!("Expected EnvVar variant"),
+        }
+    }
+
+    #[cfg(feature = "unstable_auth_methods")]
+    #[test]
+    fn test_auth_method_env_var_with_link_serialization() {
+        let method = AuthMethod::EnvVar(
+            AuthMethodEnvVar::new("api-key", "API Key", vec![AuthEnvVar::new("API_KEY")])
+                .link("https://example.com/keys"),
+        );
+
+        let json = serde_json::to_value(&method).unwrap();
+        assert_eq!(
+            json,
+            json!({
+                "id": "api-key",
+                "name": "API Key",
+                "type": "env_var",
+                "vars": [{"name": "API_KEY"}],
+                "link": "https://example.com/keys"
+            })
+        );
+
+        let deserialized: AuthMethod = serde_json::from_value(json).unwrap();
+        match deserialized {
+            AuthMethod::EnvVar(AuthMethodEnvVar { link, .. }) => {
+                assert_eq!(link.as_deref(), Some("https://example.com/keys"));
+            }
+            _ => panic!("Expected EnvVar variant"),
+        }
+    }
+
+    #[cfg(feature = "unstable_auth_methods")]
+    #[test]
+    fn test_auth_method_env_var_multiple_vars() {
+        let method = AuthMethod::EnvVar(AuthMethodEnvVar::new(
+            "azure-openai",
+            "Azure OpenAI",
+            vec![
+                AuthEnvVar::new("AZURE_OPENAI_API_KEY").label("API Key"),
+                AuthEnvVar::new("AZURE_OPENAI_ENDPOINT")
+                    .label("Endpoint URL")
+                    .secret(false),
+                AuthEnvVar::new("AZURE_OPENAI_API_VERSION")
+                    .label("API Version")
+                    .secret(false)
+                    .optional(true),
+            ],
+        ));
+
+        let json = serde_json::to_value(&method).unwrap();
+        assert_eq!(
+            json,
+            json!({
+                "id": "azure-openai",
+                "name": "Azure OpenAI",
+                "type": "env_var",
+                "vars": [
+                    {"name": "AZURE_OPENAI_API_KEY", "label": "API Key"},
+                    {"name": "AZURE_OPENAI_ENDPOINT", "label": "Endpoint URL", "secret": false},
+                    {"name": "AZURE_OPENAI_API_VERSION", "label": "API Version", "secret": false, "optional": true}
+                ]
+            })
+        );
+
+        let deserialized: AuthMethod = serde_json::from_value(json).unwrap();
+        match deserialized {
+            AuthMethod::EnvVar(AuthMethodEnvVar { vars, .. }) => {
+                assert_eq!(vars.len(), 3);
+                // First var: secret (default true), not optional (default false)
+                assert_eq!(vars[0].name, "AZURE_OPENAI_API_KEY");
+                assert_eq!(vars[0].label.as_deref(), Some("API Key"));
+                assert!(vars[0].secret);
+                assert!(!vars[0].optional);
+                // Second var: not a secret, not optional
+                assert_eq!(vars[1].name, "AZURE_OPENAI_ENDPOINT");
+                assert!(!vars[1].secret);
+                assert!(!vars[1].optional);
+                // Third var: not a secret, optional
+                assert_eq!(vars[2].name, "AZURE_OPENAI_API_VERSION");
+                assert!(!vars[2].secret);
+                assert!(vars[2].optional);
+            }
+            _ => panic!("Expected EnvVar variant"),
+        }
+    }
+
+    #[cfg(feature = "unstable_auth_methods")]
+    #[test]
+    fn test_auth_method_terminal_serialization() {
+        let method = AuthMethod::Terminal(AuthMethodTerminal::new("tui-auth", "Terminal Auth"));
+
+        let json = serde_json::to_value(&method).unwrap();
+        assert_eq!(
+            json,
+            json!({
+                "id": "tui-auth",
+                "name": "Terminal Auth",
+                "type": "terminal"
+            })
+        );
+        // args and env should be omitted when empty
+        assert!(!json.as_object().unwrap().contains_key("args"));
+        assert!(!json.as_object().unwrap().contains_key("env"));
+
+        let deserialized: AuthMethod = serde_json::from_value(json).unwrap();
+        match deserialized {
+            AuthMethod::Terminal(AuthMethodTerminal { args, env, .. }) => {
+                assert!(args.is_empty());
+                assert!(env.is_empty());
+            }
+            _ => panic!("Expected Terminal variant"),
+        }
+    }
+
+    #[cfg(feature = "unstable_auth_methods")]
+    #[test]
+    fn test_auth_method_terminal_with_args_and_env_serialization() {
+        use std::collections::HashMap;
+
+        let mut env = HashMap::new();
+        env.insert("TERM".to_string(), "xterm-256color".to_string());
+
+        let method = AuthMethod::Terminal(
+            AuthMethodTerminal::new("tui-auth", "Terminal Auth")
+                .args(vec!["--interactive".to_string(), "--color".to_string()])
+                .env(env),
+        );
+
+        let json = serde_json::to_value(&method).unwrap();
+        assert_eq!(
+            json,
+            json!({
+                "id": "tui-auth",
+                "name": "Terminal Auth",
+                "type": "terminal",
+                "args": ["--interactive", "--color"],
+                "env": {
+                    "TERM": "xterm-256color"
+                }
+            })
+        );
+
+        let deserialized: AuthMethod = serde_json::from_value(json).unwrap();
+        match deserialized {
+            AuthMethod::Terminal(AuthMethodTerminal { args, env, .. }) => {
+                assert_eq!(args, vec!["--interactive", "--color"]);
+                assert_eq!(env.len(), 1);
+                assert_eq!(env.get("TERM").unwrap(), "xterm-256color");
+            }
+            _ => panic!("Expected Terminal variant"),
+        }
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_session_config_option_value_id_serialize() {
+        let val = SessionConfigOptionValue::value_id("model-1");
+        let json = serde_json::to_value(&val).unwrap();
+        // ValueId omits the "type" field (it's the default)
+        assert_eq!(json, json!({ "value": "model-1" }));
+        assert!(!json.as_object().unwrap().contains_key("type"));
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_session_config_option_value_boolean_serialize() {
+        let val = SessionConfigOptionValue::boolean(true);
+        let json = serde_json::to_value(&val).unwrap();
+        assert_eq!(json, json!({ "type": "boolean", "value": true }));
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_session_config_option_value_deserialize_no_type() {
+        // Missing "type" should default to ValueId
+        let json = json!({ "value": "model-1" });
+        let val: SessionConfigOptionValue = serde_json::from_value(json).unwrap();
+        assert_eq!(val, SessionConfigOptionValue::value_id("model-1"));
+        assert_eq!(val.as_value_id().unwrap().to_string(), "model-1");
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_session_config_option_value_deserialize_boolean() {
+        let json = json!({ "type": "boolean", "value": true });
+        let val: SessionConfigOptionValue = serde_json::from_value(json).unwrap();
+        assert_eq!(val, SessionConfigOptionValue::boolean(true));
+        assert_eq!(val.as_bool(), Some(true));
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_session_config_option_value_deserialize_boolean_false() {
+        let json = json!({ "type": "boolean", "value": false });
+        let val: SessionConfigOptionValue = serde_json::from_value(json).unwrap();
+        assert_eq!(val, SessionConfigOptionValue::boolean(false));
+        assert_eq!(val.as_bool(), Some(false));
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_session_config_option_value_deserialize_unknown_type_with_string_value() {
+        // Unknown type with a string value gracefully falls back to ValueId
+        let json = json!({ "type": "text", "value": "freeform input" });
+        let val: SessionConfigOptionValue = serde_json::from_value(json).unwrap();
+        assert_eq!(val.as_value_id().unwrap().to_string(), "freeform input");
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_session_config_option_value_roundtrip_value_id() {
+        let original = SessionConfigOptionValue::value_id("option-a");
+        let json = serde_json::to_value(&original).unwrap();
+        let roundtripped: SessionConfigOptionValue = serde_json::from_value(json).unwrap();
+        assert_eq!(original, roundtripped);
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_session_config_option_value_roundtrip_boolean() {
+        let original = SessionConfigOptionValue::boolean(false);
+        let json = serde_json::to_value(&original).unwrap();
+        let roundtripped: SessionConfigOptionValue = serde_json::from_value(json).unwrap();
+        assert_eq!(original, roundtripped);
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_session_config_option_value_type_mismatch_boolean_with_string() {
+        // type says "boolean" but value is a string — falls to untagged ValueId
+        let json = json!({ "type": "boolean", "value": "not a bool" });
+        let result = serde_json::from_value::<SessionConfigOptionValue>(json);
+        // serde tries Boolean first (fails), then falls to untagged ValueId (succeeds)
+        assert!(result.is_ok());
+        assert_eq!(
+            result.unwrap().as_value_id().unwrap().to_string(),
+            "not a bool"
+        );
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_session_config_option_value_from_impls() {
+        let from_str: SessionConfigOptionValue = "model-1".into();
+        assert_eq!(from_str.as_value_id().unwrap().to_string(), "model-1");
+
+        let from_id: SessionConfigOptionValue = SessionConfigValueId::new("model-2").into();
+        assert_eq!(from_id.as_value_id().unwrap().to_string(), "model-2");
+
+        let from_bool: SessionConfigOptionValue = true.into();
+        assert_eq!(from_bool.as_bool(), Some(true));
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_set_session_config_option_request_value_id() {
+        let req = SetSessionConfigOptionRequest::new("sess_1", "model", "model-1");
+        let json = serde_json::to_value(&req).unwrap();
+        assert_eq!(
+            json,
+            json!({
+                "sessionId": "sess_1",
+                "configId": "model",
+                "value": "model-1"
+            })
+        );
+        // No "type" field for value_id
+        assert!(!json.as_object().unwrap().contains_key("type"));
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_set_session_config_option_request_boolean() {
+        let req = SetSessionConfigOptionRequest::new("sess_1", "brave_mode", true);
+        let json = serde_json::to_value(&req).unwrap();
+        assert_eq!(
+            json,
+            json!({
+                "sessionId": "sess_1",
+                "configId": "brave_mode",
+                "type": "boolean",
+                "value": true
+            })
+        );
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_set_session_config_option_request_deserialize_no_type() {
+        // Backwards-compatible: no "type" field → value_id
+        let json = json!({
+            "sessionId": "sess_1",
+            "configId": "model",
+            "value": "model-1"
+        });
+        let req: SetSessionConfigOptionRequest = serde_json::from_value(json).unwrap();
+        assert_eq!(req.session_id.to_string(), "sess_1");
+        assert_eq!(req.config_id.to_string(), "model");
+        assert_eq!(req.value.as_value_id().unwrap().to_string(), "model-1");
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_set_session_config_option_request_deserialize_boolean() {
+        let json = json!({
+            "sessionId": "sess_1",
+            "configId": "brave_mode",
+            "type": "boolean",
+            "value": true
+        });
+        let req: SetSessionConfigOptionRequest = serde_json::from_value(json).unwrap();
+        assert_eq!(req.value.as_bool(), Some(true));
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_set_session_config_option_request_roundtrip_value_id() {
+        let original = SetSessionConfigOptionRequest::new("s", "c", "v");
+        let json = serde_json::to_value(&original).unwrap();
+        let roundtripped: SetSessionConfigOptionRequest = serde_json::from_value(json).unwrap();
+        assert_eq!(original, roundtripped);
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_set_session_config_option_request_roundtrip_boolean() {
+        let original = SetSessionConfigOptionRequest::new("s", "c", false);
+        let json = serde_json::to_value(&original).unwrap();
+        let roundtripped: SetSessionConfigOptionRequest = serde_json::from_value(json).unwrap();
+        assert_eq!(original, roundtripped);
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_session_config_boolean_serialization() {
+        let cfg = SessionConfigBoolean::new(true);
+        let json = serde_json::to_value(&cfg).unwrap();
+        assert_eq!(json, json!({ "currentValue": true }));
+
+        let deserialized: SessionConfigBoolean = serde_json::from_value(json).unwrap();
+        assert!(deserialized.current_value);
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_session_config_option_boolean_variant() {
+        let opt = SessionConfigOption::boolean("brave_mode", "Brave Mode", false)
+            .description("Skip confirmation prompts");
+        let json = serde_json::to_value(&opt).unwrap();
+        assert_eq!(
+            json,
+            json!({
+                "id": "brave_mode",
+                "name": "Brave Mode",
+                "description": "Skip confirmation prompts",
+                "type": "boolean",
+                "currentValue": false
+            })
+        );
+
+        let deserialized: SessionConfigOption = serde_json::from_value(json).unwrap();
+        assert_eq!(deserialized.id.to_string(), "brave_mode");
+        assert_eq!(deserialized.name, "Brave Mode");
+        match deserialized.kind {
+            SessionConfigKind::Boolean(ref b) => assert!(!b.current_value),
+            _ => panic!("Expected Boolean kind"),
+        }
+    }
+
+    #[cfg(feature = "unstable_boolean_config")]
+    #[test]
+    fn test_session_config_option_select_still_works() {
+        // Make sure existing select options are unaffected
+        let opt = SessionConfigOption::select(
+            "model",
+            "Model",
+            "model-1",
+            vec![
+                SessionConfigSelectOption::new("model-1", "Model 1"),
+                SessionConfigSelectOption::new("model-2", "Model 2"),
+            ],
+        );
+        let json = serde_json::to_value(&opt).unwrap();
+        assert_eq!(json["type"], "select");
+        assert_eq!(json["currentValue"], "model-1");
+        assert_eq!(json["options"].as_array().unwrap().len(), 2);
+
+        let deserialized: SessionConfigOption = serde_json::from_value(json).unwrap();
+        match deserialized.kind {
+            SessionConfigKind::Select(ref s) => {
+                assert_eq!(s.current_value.to_string(), "model-1");
+            }
+            _ => panic!("Expected Select kind"),
+        }
     }
 }

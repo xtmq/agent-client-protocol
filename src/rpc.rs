@@ -72,6 +72,7 @@ pub enum Response<Result> {
 }
 
 impl<R> Response<R> {
+    #[must_use]
     pub fn new(id: impl Into<RequestId>, result: Result<R>) -> Self {
         match result {
             Ok(result) => Self::Result {
@@ -204,7 +205,7 @@ impl Side for ClientSide {
                 .map(AgentRequest::TerminalOutputRequest)
                 .map_err(Into::into),
             m if m == CLIENT_METHOD_NAMES.terminal_kill => serde_json::from_str(params.get())
-                .map(AgentRequest::KillTerminalCommandRequest)
+                .map(AgentRequest::KillTerminalRequest)
                 .map_err(Into::into),
             m if m == CLIENT_METHOD_NAMES.terminal_release => serde_json::from_str(params.get())
                 .map(AgentRequest::ReleaseTerminalRequest)
@@ -214,6 +215,10 @@ impl Side for ClientSide {
                     .map(AgentRequest::WaitForTerminalExitRequest)
                     .map_err(Into::into)
             }
+            #[cfg(feature = "unstable_elicitation")]
+            m if m == CLIENT_METHOD_NAMES.session_elicitation => serde_json::from_str(params.get())
+                .map(AgentRequest::ElicitationRequest)
+                .map_err(Into::into),
             _ => {
                 if let Some(custom_method) = method.strip_prefix('_') {
                     Ok(AgentRequest::ExtMethodRequest(ExtRequest {
@@ -234,11 +239,17 @@ impl Side for ClientSide {
             m if m == CLIENT_METHOD_NAMES.session_update => serde_json::from_str(params.get())
                 .map(AgentNotification::SessionNotification)
                 .map_err(Into::into),
+            #[cfg(feature = "unstable_elicitation")]
+            m if m == CLIENT_METHOD_NAMES.session_elicitation_complete => {
+                serde_json::from_str(params.get())
+                    .map(AgentNotification::ElicitationCompleteNotification)
+                    .map_err(Into::into)
+            }
             _ => {
                 if let Some(custom_method) = method.strip_prefix('_') {
                     Ok(AgentNotification::ExtNotification(ExtNotification {
                         method: custom_method.into(),
-                        params: RawValue::from_string(params.get().to_string())?.into(),
+                        params: params.to_owned().into(),
                     }))
                 } else {
                     Err(Error::method_not_found())
@@ -273,13 +284,16 @@ impl Side for AgentSide {
             m if m == AGENT_METHOD_NAMES.authenticate => serde_json::from_str(params.get())
                 .map(ClientRequest::AuthenticateRequest)
                 .map_err(Into::into),
+            #[cfg(feature = "unstable_logout")]
+            m if m == AGENT_METHOD_NAMES.logout => serde_json::from_str(params.get())
+                .map(ClientRequest::LogoutRequest)
+                .map_err(Into::into),
             m if m == AGENT_METHOD_NAMES.session_new => serde_json::from_str(params.get())
                 .map(ClientRequest::NewSessionRequest)
                 .map_err(Into::into),
             m if m == AGENT_METHOD_NAMES.session_load => serde_json::from_str(params.get())
                 .map(ClientRequest::LoadSessionRequest)
                 .map_err(Into::into),
-            #[cfg(feature = "unstable_session_list")]
             m if m == AGENT_METHOD_NAMES.session_list => serde_json::from_str(params.get())
                 .map(ClientRequest::ListSessionsRequest)
                 .map_err(Into::into),
@@ -291,10 +305,13 @@ impl Side for AgentSide {
             m if m == AGENT_METHOD_NAMES.session_resume => serde_json::from_str(params.get())
                 .map(ClientRequest::ResumeSessionRequest)
                 .map_err(Into::into),
+            #[cfg(feature = "unstable_session_close")]
+            m if m == AGENT_METHOD_NAMES.session_close => serde_json::from_str(params.get())
+                .map(ClientRequest::CloseSessionRequest)
+                .map_err(Into::into),
             m if m == AGENT_METHOD_NAMES.session_set_mode => serde_json::from_str(params.get())
                 .map(ClientRequest::SetSessionModeRequest)
                 .map_err(Into::into),
-            #[cfg(feature = "unstable_session_config_options")]
             m if m == AGENT_METHOD_NAMES.session_set_config_option => {
                 serde_json::from_str(params.get())
                     .map(ClientRequest::SetSessionConfigOptionRequest)
@@ -331,7 +348,7 @@ impl Side for AgentSide {
                 if let Some(custom_method) = method.strip_prefix('_') {
                     Ok(ClientNotification::ExtNotification(ExtNotification {
                         method: custom_method.into(),
-                        params: RawValue::from_string(params.get().to_string())?.into(),
+                        params: params.to_owned().into(),
                     }))
                 } else {
                     Err(Error::method_not_found())
@@ -437,6 +454,8 @@ fn test_notification_wire_format() {
                             text: "Hello".to_string(),
                             meta: None,
                         }),
+                        #[cfg(feature = "unstable_message_id")]
+                        message_id: None,
                         meta: None,
                     }),
                     meta: None,

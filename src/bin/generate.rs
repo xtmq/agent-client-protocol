@@ -27,6 +27,7 @@ struct ClientOutgoingMessage(JsonRpcMessage<OutgoingMessage<ClientSide, AgentSid
 #[derive(JsonSchema)]
 #[serde(untagged)]
 #[schemars(title = "Agent Client Protocol")]
+#[allow(clippy::large_enum_variant)]
 enum AcpTypes {
     Agent(AgentOutgoingMessage),
     Client(ClientOutgoingMessage),
@@ -291,8 +292,37 @@ starting with '$/' it is free to ignore the notification."
                 writeln!(&mut self.output).unwrap();
             }
             // Determine type kind and document accordingly
-            if definition.get("oneOf").is_some() || definition.get("anyOf").is_some() {
-                self.document_union(definition);
+            if let Some(variants) = definition
+                .get("oneOf")
+                .or_else(|| definition.get("anyOf"))
+                .and_then(|v| v.as_array())
+            {
+                if variants.len() == 1 {
+                    // Single-variant union: resolve the $ref and render as its
+                    // underlying type instead of a "Union" wrapper.
+                    let variant = &variants[0];
+                    if let Some(merged_def) = self.merge_variant_definition(variant) {
+                        // Preserve variant-level description if present
+                        if let Some(desc) = Self::get_def_description(variant) {
+                            let escaped_desc = Self::escape_description(&desc);
+                            writeln!(&mut self.output, "{escaped_desc}").unwrap();
+                            writeln!(&mut self.output).unwrap();
+                        }
+                        if merged_def.get("properties").is_some() {
+                            self.document_object(&merged_def);
+                        } else if let Some(type_val) =
+                            merged_def.get("type").and_then(|v| v.as_str())
+                        {
+                            self.document_simple_type(type_val, &merged_def);
+                        } else {
+                            self.document_union(definition);
+                        }
+                    } else {
+                        self.document_union(definition);
+                    }
+                } else {
+                    self.document_union(definition);
+                }
             } else if definition.get("enum").is_some() {
                 self.document_enum_simple(definition);
             } else if definition.get("properties").is_some() {
@@ -409,29 +439,34 @@ starting with '$/' it is free to ignore the notification."
             };
 
             // 1. Check for $ref (direct)
-            if let Some(ref_val) = variant.get("$ref").and_then(|v| v.as_str()) {
-                let type_name = ref_val.strip_prefix("#/$defs/").unwrap_or(ref_val);
-                if let Some(ref_def) = self.definitions.get(type_name) {
-                    merge_from(ref_def);
-                }
-            }
-
-            // 2. Check for allOf (often used for inheritance/composition)
-            if let Some(all_of) = variant.get("allOf").and_then(|v| v.as_array()) {
-                for item in all_of {
-                    if let Some(ref_val) = item.get("$ref").and_then(|v| v.as_str()) {
-                        let type_name = ref_val.strip_prefix("#/$defs/").unwrap_or(ref_val);
-                        if let Some(ref_def) = self.definitions.get(type_name) {
-                            merge_from(ref_def);
-                        }
-                    } else {
-                        merge_from(item);
+            if let Some(merged_variant) = self.merge_variant_definition(variant) {
+                merge_from(&merged_variant);
+            } else {
+                // 1. Check for $ref (direct)
+                if let Some(ref_val) = variant.get("$ref").and_then(|v| v.as_str()) {
+                    let type_name = ref_val.strip_prefix("#/$defs/").unwrap_or(ref_val);
+                    if let Some(ref_def) = self.definitions.get(type_name) {
+                        merge_from(ref_def);
                     }
                 }
-            }
 
-            // 3. Local properties
-            merge_from(variant);
+                // 2. Check for allOf (often used for inheritance/composition)
+                if let Some(all_of) = variant.get("allOf").and_then(|v| v.as_array()) {
+                    for item in all_of {
+                        if let Some(ref_val) = item.get("$ref").and_then(|v| v.as_str()) {
+                            let type_name = ref_val.strip_prefix("#/$defs/").unwrap_or(ref_val);
+                            if let Some(ref_def) = self.definitions.get(type_name) {
+                                merge_from(ref_def);
+                            }
+                        } else {
+                            merge_from(item);
+                        }
+                    }
+                }
+
+                // 3. Local properties
+                merge_from(variant);
+            }
 
             if !merged_props.is_empty() {
                 writeln!(&mut self.output).unwrap();
@@ -525,6 +560,17 @@ starting with '$/' it is free to ignore the notification."
                 // Add description if available
                 if let Some(desc) = Self::get_def_description(prop_schema) {
                     writeln!(&mut self.output, "{indent_str}  {desc}").unwrap();
+                } else if let Some(const_val) = prop_schema.get("const") {
+                    let val_str = if let Some(s) = const_val.as_str() {
+                        format!("\"{s}\"")
+                    } else {
+                        const_val.to_string()
+                    };
+                    writeln!(
+                        &mut self.output,
+                        "{indent_str}  The discriminator value. Must be `{val_str}`."
+                    )
+                    .unwrap();
                 }
 
                 // Add constraints if any
@@ -872,6 +918,89 @@ starting with '$/' it is free to ignore the notification."
             Some(desc)
         }
 
+        fn merge_variant_definition(&self, variant: &Value) -> Option<Value> {
+            let mut merged = if let Some(ref_val) = variant.get("$ref").and_then(|v| v.as_str()) {
+                let type_name = ref_val.strip_prefix("#/$defs/").unwrap_or(ref_val);
+                self.definitions.get(type_name).cloned()?
+            } else if let Some(all_of) = variant.get("allOf").and_then(|v| v.as_array()) {
+                let mut base = None;
+
+                for item in all_of {
+                    if let Some(ref_val) = item.get("$ref").and_then(|v| v.as_str()) {
+                        let type_name = ref_val.strip_prefix("#/$defs/").unwrap_or(ref_val);
+                        if let Some(def) = self.definitions.get(type_name) {
+                            base = Some(def.clone());
+                            break;
+                        }
+                    }
+                }
+
+                base.unwrap_or_else(|| Value::Object(serde_json::Map::new()))
+            } else {
+                return None;
+            };
+
+            let Some(merged_obj) = merged.as_object_mut() else {
+                return Some(merged);
+            };
+
+            let mut wrapper_props = serde_json::Map::new();
+            let mut wrapper_required = Vec::new();
+
+            let mut collect_fields = |schema: &Value| {
+                if let Some(props) = schema.get("properties").and_then(|v| v.as_object()) {
+                    for (key, value) in props {
+                        wrapper_props
+                            .entry(key.clone())
+                            .or_insert_with(|| value.clone());
+                    }
+                }
+                if let Some(required) = schema.get("required").and_then(|v| v.as_array()) {
+                    for req in required {
+                        if !wrapper_required.contains(req) {
+                            wrapper_required.push(req.clone());
+                        }
+                    }
+                }
+            };
+
+            if let Some(all_of) = variant.get("allOf").and_then(|v| v.as_array()) {
+                for item in all_of {
+                    if item.get("$ref").is_none() {
+                        collect_fields(item);
+                    }
+                }
+            }
+
+            collect_fields(variant);
+
+            if !wrapper_props.is_empty() {
+                let target_props = merged_obj
+                    .entry("properties".to_string())
+                    .or_insert_with(|| Value::Object(serde_json::Map::new()));
+                if let Some(target_props_obj) = target_props.as_object_mut() {
+                    for (key, value) in wrapper_props {
+                        target_props_obj.entry(key).or_insert(value);
+                    }
+                }
+            }
+
+            if !wrapper_required.is_empty() {
+                let target_required = merged_obj
+                    .entry("required".to_string())
+                    .or_insert_with(|| Value::Array(Vec::new()));
+                if let Some(target_required_arr) = target_required.as_array_mut() {
+                    for req in wrapper_required {
+                        if !target_required_arr.contains(&req) {
+                            target_required_arr.push(req);
+                        }
+                    }
+                }
+            }
+
+            Some(merged)
+        }
+
         fn anchor_text(title: &str) -> String {
             title.to_lowercase()
         }
@@ -901,6 +1030,8 @@ starting with '$/' it is free to ignore the notification."
                 "session/prompt" => self.agent.get("PromptRequest").unwrap(),
                 "session/cancel" => self.agent.get("CancelNotification").unwrap(),
                 "session/set_model" => self.agent.get("SetSessionModelRequest").unwrap(),
+                "session/close" => self.agent.get("CloseSessionRequest").unwrap(),
+                "logout" => self.agent.get("LogoutRequest").unwrap(),
                 _ => panic!("Introduced a method? Add it here :)"),
             }
         }
@@ -917,7 +1048,13 @@ starting with '$/' it is free to ignore the notification."
                 "terminal/output" => self.client.get("TerminalOutputRequest").unwrap(),
                 "terminal/release" => self.client.get("ReleaseTerminalRequest").unwrap(),
                 "terminal/wait_for_exit" => self.client.get("WaitForTerminalExitRequest").unwrap(),
-                "terminal/kill" => self.client.get("KillTerminalCommandRequest").unwrap(),
+                "terminal/kill" => self.client.get("KillTerminalRequest").unwrap(),
+                #[cfg(feature = "unstable_elicitation")]
+                "session/elicitation" => self.client.get("ElicitationRequest").unwrap(),
+                #[cfg(feature = "unstable_elicitation")]
+                "session/elicitation/complete" => {
+                    self.client.get("ElicitationCompleteNotification").unwrap()
+                }
                 _ => panic!("Introduced a method? Add it here :)"),
             }
         }
